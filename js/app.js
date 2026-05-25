@@ -7,6 +7,7 @@ import { Grid } from "./model/grid.js";
 import { ALGORITHMS, getAlgorithm } from "./algorithms/registry.js";
 import { CanvasView } from "./visualize/canvasView.js";
 import { HeapTreeView } from "./visualize/heapTreeView.js";
+import { QuickStripView } from "./visualize/quickStripView.js";
 import { Animator } from "./visualize/animator.js";
 import { SortPlayer, playbackDelay } from "./visualize/sortPlayer.js";
 import {
@@ -33,6 +34,7 @@ import {
   getTutorialBeforeStepMessage,
 } from "./tutorial/coach.js";
 import { getHeapSize } from "./tutorial/heap.js";
+import { getQuickStripState, trackQuickStep } from "./tutorial/quick.js";
 import { TutorialPanel } from "./tutorial/tutorialPanel.js";
 import { STEP } from "./algorithms/types.js";
 
@@ -56,6 +58,12 @@ export function createApp() {
   );
   const heapTreeCanvas = /** @type {HTMLCanvasElement} */ (
     document.querySelector("#heap-tree-canvas")
+  );
+  const quickStripPanel = /** @type {HTMLElement} */ (
+    document.querySelector("#quick-strip-panel")
+  );
+  const quickStripCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#quick-strip-canvas")
   );
   const colsInput = /** @type {HTMLInputElement} */ (
     document.querySelector("#grid-cols")
@@ -145,12 +153,59 @@ export function createApp() {
     return isTutorialMode() && algorithmSelect.value === "heap";
   }
 
-  function syncHeapTreeChrome() {
-    if (!heapTreePanel) return;
-    const show = shouldShowHeapTree();
-    heapTreePanel.hidden = !show;
-    if (show && heapTreeView) {
-      heapTreeView.resize();
+  function shouldShowQuickStrip() {
+    return isTutorialMode() && algorithmSelect.value === "quick";
+  }
+
+  /** Range anchor, pivot, scan, and placed highlights on the main grid. */
+  function syncQuickTutorialGridHighlights() {
+    if (!grid || !shouldShowQuickStrip() || !tutorialContext || sortComplete) {
+      return;
+    }
+    const strip = getQuickStripState(
+      tutorialContext,
+      grid.cellCount,
+      false
+    );
+
+    if (strip.active) {
+      if (
+        strip.rangeBottomIndex >= 0 &&
+        strip.rangeBottomIndex !== strip.pivotIndex
+      ) {
+        grid.highlightCell(strip.rangeBottomIndex, "rangeStart");
+      }
+      if (strip.pivotIndex >= 0) {
+        grid.highlightCell(strip.pivotIndex, "pivot");
+      }
+      return;
+    }
+
+    if (strip.lastPlacedIndex >= 0) {
+      grid.clearHighlights();
+      grid.highlightCell(strip.lastPlacedIndex, "placed");
+    }
+  }
+
+  function syncTutorialSidePanels() {
+    const showHeap = shouldShowHeapTree();
+    const showQuick = shouldShowQuickStrip();
+
+    if (heapTreePanel) {
+      heapTreePanel.hidden = !showHeap;
+      if (showHeap && heapTreeView) {
+        heapTreeView.resize();
+      }
+    }
+
+    if (quickStripPanel) {
+      quickStripPanel.hidden = !showQuick;
+      if (showQuick && quickStripView) {
+        quickStripView.resize();
+      }
+    }
+
+    if (showHeap || showQuick) {
       animator.requestFrame();
     }
   }
@@ -195,6 +250,9 @@ export function createApp() {
     if (heapTreeView && shouldShowHeapTree()) {
       heapTreeView.resize();
     }
+    if (quickStripView && shouldShowQuickStrip()) {
+      quickStripView.resize();
+    }
     animator.requestFrame();
   }
 
@@ -219,7 +277,29 @@ export function createApp() {
       animator.requestFrame();
     } else if (message.focusIndex != null && grid) {
       grid.clearHighlights();
-      grid.highlightCell(message.focusIndex, "active");
+      const strip =
+        shouldShowQuickStrip() && tutorialContext
+          ? getQuickStripState(tutorialContext, grid.cellCount, false)
+          : null;
+
+      if (message.title === "Placed") {
+        grid.highlightCell(message.focusIndex, "placed");
+      } else if (strip?.active) {
+        if (message.focusIndex === strip.pivotIndex) {
+          grid.highlightCell(message.focusIndex, "pivot");
+        } else {
+          grid.highlightCell(message.focusIndex, "active");
+        }
+        if (
+          strip.rangeBottomIndex >= 0 &&
+          strip.rangeBottomIndex !== strip.pivotIndex &&
+          strip.rangeBottomIndex !== message.focusIndex
+        ) {
+          grid.highlightCell(strip.rangeBottomIndex, "rangeStart");
+        }
+      } else {
+        grid.highlightCell(message.focusIndex, "active");
+      }
       animator.requestFrame();
     }
 
@@ -366,7 +446,7 @@ export function createApp() {
     const tutorial = isTutorialMode();
     tutorialPanel.setEnabled(tutorial);
     colsInput.disabled = tutorial;
-    syncHeapTreeChrome();
+    syncTutorialSidePanels();
 
     if (tutorial) {
       const current = Number(colsInput.value);
@@ -401,6 +481,9 @@ export function createApp() {
   });
 
   const heapTreeView = heapTreeCanvas ? new HeapTreeView(heapTreeCanvas) : null;
+  const quickStripView = quickStripCanvas
+    ? new QuickStripView(quickStripCanvas)
+    : null;
 
   function syncShowHueValues() {
     if (grid) {
@@ -409,6 +492,9 @@ export function createApp() {
     if (heapTreeView) {
       heapTreeView.showHueValues = showHueInput.checked;
     }
+    if (quickStripView) {
+      quickStripView.showHueValues = showHueInput.checked;
+    }
   }
 
   function render() {
@@ -416,6 +502,12 @@ export function createApp() {
     view.render((ctx) => grid.draw(ctx));
     if (heapTreeView && shouldShowHeapTree()) {
       heapTreeView.render(grid.cells, getActiveHeapSize());
+    }
+    if (quickStripView && shouldShowQuickStrip()) {
+      quickStripView.render(
+        grid.cells,
+        getQuickStripState(tutorialContext, grid.cellCount, sortComplete)
+      );
     }
   }
 
@@ -537,7 +629,7 @@ export function createApp() {
     updateAlgorithmTriggerLabel();
     updateAlgorithmDescription();
     updateAlgorithmSelectWidth();
-    syncHeapTreeChrome();
+    syncTutorialSidePanels();
     setAlgorithmMenuOpen(false);
 
     for (const item of algorithmList.querySelectorAll("[role=option]")) {
@@ -654,6 +746,7 @@ export function createApp() {
     playbackIndex = seekToStep(grid, recording, index);
     lastRenderedIndex = playbackIndex;
     updatePlaybackSlider();
+    syncQuickTutorialGridHighlights();
     animator.requestFrame();
   }
 
@@ -662,6 +755,7 @@ export function createApp() {
     playbackIndex = seekForward(grid, recording, fromIndex, toIndex);
     lastRenderedIndex = playbackIndex;
     updatePlaybackSlider();
+    syncQuickTutorialGridHighlights();
     animator.requestFrame();
   }
 
@@ -848,6 +942,9 @@ export function createApp() {
       },
       onTutorialStep: async ({ step, index, signal }) => {
         if (!tutorialContext || !recording) return;
+        if (algoId === "quick") {
+          trackQuickStep(step, tutorialContext);
+        }
         const message =
           step?.type === STEP.DONE
             ? getTutorialOutro(algoId)
@@ -937,6 +1034,9 @@ export function createApp() {
       grid?.clearHighlights();
       if (heapTreeView && shouldShowHeapTree()) {
         heapTreeView.resize();
+      }
+      if (quickStripView && shouldShowQuickStrip()) {
+        quickStripView.resize();
       }
       animator.requestFrame();
     }

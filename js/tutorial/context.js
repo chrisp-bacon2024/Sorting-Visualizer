@@ -15,7 +15,16 @@ export function createTutorialContext() {
     insertion: { activeJ: -1 },
     selection: { passStart: 0 },
     heap: { heapEnd: -1, buildDone: false },
-    quick: { pivotIndex: -1, partitionStarted: false },
+    quick: {
+      pivotIndex: -1,
+      partitionStarted: false,
+      lo: 0,
+      hi: -1,
+      storeIndex: 0,
+      scanIndex: -1,
+      active: false,
+      lastPlacedIndex: -1,
+    },
     merge: { mergeKey: "" },
     timsort: { inMerge: false, runKey: "" },
   };

@@ -12,6 +12,30 @@ const ACTIVE_HIGHLIGHT = {
   glowWidth: 10,
 };
 
+/** Quick-sort pivot (matches tutorial strip). */
+const PIVOT_HIGHLIGHT = {
+  stroke: "#a78bfa",
+  width: 5,
+  glow: "rgba(167, 139, 250, 0.5)",
+  glowWidth: 10,
+};
+
+/** Quick-sort range start / anchor (left end of active range). */
+const RANGE_START_HIGHLIGHT = {
+  stroke: "#22d3ee",
+  width: 5,
+  glow: "rgba(34, 211, 238, 0.55)",
+  glowWidth: 10,
+};
+
+/** Quick-sort pivot placed in final position. */
+const PLACED_HIGHLIGHT = {
+  stroke: "#4ade80",
+  width: 5,
+  glow: "rgba(74, 222, 128, 0.55)",
+  glowWidth: 10,
+};
+
 const randomHueColor = () => {
   const hue = Math.floor(Math.random() * 360);
   return { hue, color: `hsl(${hue}, 90%, 55%)` };
@@ -155,7 +179,7 @@ export class Grid {
 
   /**
    * @param {number} index
-   * @param {"active" | "default"} [role]
+   * @param {"active" | "pivot" | "rangeStart" | "placed" | "default"} [role]
    */
   highlightCell(index, role = "default") {
     this.cells[index]?.highlight(role);
@@ -199,6 +223,9 @@ export class Cell {
     this.outlineWidth = 1;
     this._highlighted = false;
     this._highlightActive = false;
+    this._highlightPivot = false;
+    this._highlightRangeStart = false;
+    this._highlightPlaced = false;
   }
 
   /**
@@ -232,12 +259,24 @@ export class Cell {
   }
 
   /**
-   * @param {"active" | "default"} [role]
+   * @param {"active" | "pivot" | "rangeStart" | "placed" | "default"} [role]
    */
   highlight(role = "default") {
     this._highlighted = true;
+    this._highlightPlaced = role === "placed";
+    this._highlightPivot = role === "pivot";
+    this._highlightRangeStart = role === "rangeStart";
     this._highlightActive = role === "active";
-    if (this._highlightActive) {
+    if (this._highlightPlaced) {
+      this.outlineColor = PLACED_HIGHLIGHT.stroke;
+      this.outlineWidth = PLACED_HIGHLIGHT.width;
+    } else if (this._highlightPivot) {
+      this.outlineColor = PIVOT_HIGHLIGHT.stroke;
+      this.outlineWidth = PIVOT_HIGHLIGHT.width;
+    } else if (this._highlightRangeStart) {
+      this.outlineColor = RANGE_START_HIGHLIGHT.stroke;
+      this.outlineWidth = RANGE_START_HIGHLIGHT.width;
+    } else if (this._highlightActive) {
       this.outlineColor = ACTIVE_HIGHLIGHT.stroke;
       this.outlineWidth = ACTIVE_HIGHLIGHT.width;
     } else {
@@ -249,6 +288,9 @@ export class Cell {
   unhighlight() {
     this._highlighted = false;
     this._highlightActive = false;
+    this._highlightPivot = false;
+    this._highlightRangeStart = false;
+    this._highlightPlaced = false;
     this.outlineColor = this.defaultOutlineColor;
     this.outlineWidth = 1;
   }
@@ -265,7 +307,37 @@ export class Cell {
   draw(ctx, showHue = false) {
     const inset = (gutter) => gutter / 2;
 
-    if (this._highlightActive) {
+    if (this._highlightPlaced) {
+      const g = PLACED_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = PLACED_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    } else if (this._highlightPivot) {
+      const g = PIVOT_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = PIVOT_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    } else if (this._highlightRangeStart) {
+      const g = RANGE_START_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = RANGE_START_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    } else if (this._highlightActive) {
       const g = ACTIVE_HIGHLIGHT.glowWidth;
       ctx.strokeStyle = ACTIVE_HIGHLIGHT.glow;
       ctx.lineWidth = g;
