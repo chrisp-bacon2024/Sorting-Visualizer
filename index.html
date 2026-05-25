@@ -131,8 +131,23 @@
       </section>
 
       <main class="main">
-        <div class="canvas-container">
-          <canvas id="canvas" aria-label="Color grid canvas"></canvas>
+        <div class="main__stage">
+          <div class="canvas-container">
+            <canvas id="canvas" aria-label="Color grid canvas"></canvas>
+          </div>
+          <aside
+            id="tutorial-bar"
+            class="tutorial-panel"
+            hidden
+            aria-live="polite"
+          >
+            <div class="tutorial-panel__meta">
+              <span id="tutorial-tag" class="tutorial-panel__tag"></span>
+              <span id="tutorial-step" class="tutorial-panel__step"></span>
+            </div>
+            <p id="tutorial-text" class="tutorial-panel__text"></p>
+            <span class="tutorial-panel__hint">Space — continue</span>
+          </aside>
         </div>
         <p id="status" class="status" aria-live="polite">Loading…</p>
       </main>

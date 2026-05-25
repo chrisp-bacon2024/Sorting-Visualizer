@@ -16,6 +16,16 @@ import {
   toDisplayPlaybackIndex,
   toInternalPlaybackIndex,
 } from "./benchmark.js";
+import {
+  createTutorialContext,
+  setContextCols,
+} from "./tutorial/context.js";
+import {
+  getTutorialOutro,
+  getTutorialStepMessage,
+} from "./tutorial/coach.js";
+import { TutorialPanel } from "./tutorial/tutorialPanel.js";
+import { STEP } from "./algorithms/types.js";
 
 const STATE = {
   IDLE: "idle",
@@ -90,9 +100,27 @@ export function createApp() {
 
   const animator = new Animator();
   const sortPlayer = new SortPlayer();
+  const tutorialPanel = new TutorialPanel();
   const reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
   ).matches;
+
+  /** @type {import('./tutorial/context.js').TutorialContext | null} */
+  let tutorialContext = null;
+
+  function isTutorialMode() {
+    const preset =
+      SPEED_PRESETS[Number(speedSelect.value)] ?? SPEED_PRESETS[0];
+    return Boolean(preset.tutorial);
+  }
+
+  function syncTutorialChrome() {
+    tutorialPanel.setEnabled(isTutorialMode());
+    if (!isTutorialMode()) {
+      tutorialPanel.cancelWait();
+      tutorialContext = null;
+    }
+  }
 
   const view = new CanvasView(canvas, (width, height) => {
     if (!grid) {
@@ -262,7 +290,8 @@ export function createApp() {
 
   function getPlaybackSettings() {
     const preset =
-      SPEED_PRESETS[Number(speedSelect.value)] ?? SPEED_PRESETS[2];
+      SPEED_PRESETS[Number(speedSelect.value)] ??
+      SPEED_PRESETS[CONFIG.defaultSpeedPreset];
     const count = recording ? animatedStepCount(recording) : 500;
     return computePlaybackSettings(preset, count);
   }
@@ -307,6 +336,9 @@ export function createApp() {
 
   function stopPlayback({ skipStatus = false } = {}) {
     skipAbortedStatus = skipStatus;
+    tutorialPanel.cancelWait();
+    tutorialPanel.hide();
+    tutorialContext = null;
     sortPlayer.abort();
     appState = STATE.IDLE;
     isScrubbing = false;
@@ -329,10 +361,12 @@ export function createApp() {
 
   function setControlsPlayback(isPlaying, paused = false) {
     const busy = isPlaying || paused;
+    const tutorial = isTutorialMode() && (isPlaying || paused);
     algorithmSelect.disabled = busy;
     algorithmTrigger.disabled = busy;
     shuffleBtn.disabled = busy;
-    playbackInput.disabled = !recording;
+    speedSelect.disabled = tutorial;
+    playbackInput.disabled = !recording || tutorial;
 
     if (paused) {
       playToggleBtn.textContent = "Resume";
@@ -349,6 +383,7 @@ export function createApp() {
   function setIdle(message) {
     appState = STATE.IDLE;
     setControlsPlayback(false);
+    syncTutorialChrome();
     statusEl.textContent = message;
     updatePlaybackSlider();
   }
@@ -396,21 +431,61 @@ export function createApp() {
   async function runPlayback(fromIndex) {
     if (!grid || !recording) return;
 
+    const tutorialMode = isTutorialMode();
+    const algoId = algorithmSelect.value;
+
     appState = STATE.RUNNING;
     setControlsPlayback(true);
-    statusEl.textContent = "Sorting…";
+    statusEl.textContent = tutorialMode
+      ? "Tutorial — Space at key moments"
+      : "Sorting…";
 
     lastRenderedIndex = fromIndex;
+
+    if (tutorialMode && !tutorialContext) {
+      tutorialContext = createTutorialContext();
+      setContextCols(tutorialContext, grid.cols);
+    }
 
     const result = await sortPlayer.playRecording(recording, fromIndex, {
       getPlaybackSettings,
       reducedMotion,
+      tutorialMode,
       onFrame: (from, to) => {
         if (!isScrubbing) {
           showFrame(from, to);
         }
       },
+      onTutorialStep: tutorialMode
+        ? async ({ step, index }) => {
+            if (!isTutorialMode() || !tutorialContext || !recording) return;
+            const message =
+              step?.type === STEP.DONE
+                ? getTutorialOutro(algoId)
+                : getTutorialStepMessage(
+                    algoId,
+                    step,
+                    tutorialContext,
+                    grid.cells
+                  );
+            if (!message) {
+              tutorialPanel.hide();
+              return;
+            }
+
+            const display = toDisplayPlaybackIndex(recording, index);
+            const total = animatedStepCount(recording);
+            tutorialPanel.show({
+              ...message,
+              stepLabel: `${display} / ${total}`,
+            });
+            await tutorialPanel.waitForContinue();
+          }
+        : undefined,
     });
+
+    tutorialPanel.hide();
+    tutorialContext = null;
 
     if (result === "completed") {
       sortComplete = true;
@@ -430,7 +505,8 @@ export function createApp() {
     if (result === "paused") {
       appState = STATE.PAUSED;
       setControlsPlayback(true, true);
-      statusEl.textContent = `Paused at step ${toDisplayPlaybackIndex(recording, playbackIndex)} / ${animatedStepCount(recording)}`;
+      const prefix = tutorialMode ? "Tutorial paused" : "Paused";
+      statusEl.textContent = `${prefix} at step ${toDisplayPlaybackIndex(recording, playbackIndex)} / ${animatedStepCount(recording)}`;
       return;
     }
 
@@ -449,6 +525,10 @@ export function createApp() {
       return;
     }
 
+    if (!isTutorialMode()) {
+      tutorialContext = null;
+    }
+
     if (!ensureRecording()) return;
 
     if (sortComplete) {
@@ -462,6 +542,8 @@ export function createApp() {
 
   function pauseSort() {
     if (appState !== STATE.RUNNING) return;
+    tutorialPanel.cancelWait();
+    tutorialPanel.hide();
     sortPlayer.pause();
   }
 
@@ -498,6 +580,7 @@ export function createApp() {
   });
 
   playbackInput.addEventListener("pointerdown", () => {
+    if (isTutorialMode()) return;
     isScrubbing = true;
     if (appState === STATE.RUNNING) {
       sortPlayer.pause();
@@ -505,7 +588,7 @@ export function createApp() {
   });
 
   playbackInput.addEventListener("input", () => {
-    if (!recording) return;
+    if (!recording || isTutorialMode()) return;
     playbackIndex = toInternalPlaybackIndex(
       recording,
       Number(playbackInput.value)
@@ -533,8 +616,19 @@ export function createApp() {
 
   playToggleBtn.addEventListener("click", onPlayToggleClick);
 
+  speedSelect.addEventListener("change", () => {
+    syncTutorialChrome();
+    if (appState !== STATE.IDLE) {
+      stopPlayback({ skipStatus: true });
+      statusEl.textContent = isTutorialMode()
+        ? "Tutorial — press Start to sort"
+        : `${grid?.cols ?? CONFIG.cols}×${grid?.cols ?? CONFIG.cols} grid — press Start to sort`;
+    }
+  });
+
   refreshAlgorithmOptions();
   populateSpeedPresets();
+  syncTutorialChrome();
   syncColsLabel();
   updatePlaybackSlider();
   setIdle(`${CONFIG.cols}×${CONFIG.cols} grid — press Start to sort`);

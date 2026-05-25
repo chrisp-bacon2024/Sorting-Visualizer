@@ -135,8 +135,8 @@ export class Grid {
    * @param {number} j
    */
   compareCells(i, j) {
-    this.highlightCell(i);
-    this.highlightCell(j);
+    this.highlightCell(i, "primary");
+    this.highlightCell(j, "secondary");
   }
 
   clearHighlights() {
@@ -145,9 +145,10 @@ export class Grid {
 
   /**
    * @param {number} index
+   * @param {"primary" | "secondary" | "default"} [role]
    */
-  highlightCell(index) {
-    this.cells[index]?.highlight();
+  highlightCell(index, role = "default") {
+    this.cells[index]?.highlight(role);
   }
 
   /**
@@ -219,10 +220,21 @@ export class Cell {
     this.height = newHeight;
   }
 
-  highlight() {
+  /**
+   * @param {"primary" | "secondary" | "default"} [role]
+   */
+  highlight(role = "default") {
     this._highlighted = true;
-    this.outlineColor = "#f5c542";
-    this.outlineWidth = 2;
+    if (role === "primary") {
+      this.outlineColor = "#38bdf8";
+      this.outlineWidth = 3;
+    } else if (role === "secondary") {
+      this.outlineColor = "#f472b6";
+      this.outlineWidth = 3;
+    } else {
+      this.outlineColor = "#f5c542";
+      this.outlineWidth = 2;
+    }
   }
 
   unhighlight() {

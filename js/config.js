@@ -3,7 +3,7 @@ export const CONFIG = {
   cols: 20,
   minCols: 5,
   maxCols: 40,
-  defaultSpeedPreset: 2,
+  defaultSpeedPreset: 3,
   maxFastPlaybackMs: 9500,
 };
 
@@ -12,6 +12,7 @@ export const CONFIG = {
  * @type {Readonly<{ label: string, targetMs: number }[]>}
  */
 export const SPEED_PRESETS = [
+  { label: "Tutorial", tutorial: true },
   { label: "Very slow", targetMs: 90000 },
   { label: "Slow", targetMs: 45000 },
   { label: "Medium", targetMs: 20000 },
@@ -20,11 +21,14 @@ export const SPEED_PRESETS = [
 ];
 
 /**
- * @param {{ targetMs: number }} preset
+ * @param {{ targetMs?: number, tutorial?: boolean }} preset
  * @param {number} animatedStepCount Compare/swap steps (not "done")
- * @returns {{ delayMs: number, stride: number }}
+ * @returns {{ delayMs: number, stride: number, tutorial?: boolean }}
  */
 export function getPlaybackSettings(preset, animatedStepCount) {
+  if (preset.tutorial) {
+    return { delayMs: 0, stride: 1, tutorial: true };
+  }
   if (animatedStepCount <= 0) {
     return { delayMs: 16, stride: 1 };
   }
