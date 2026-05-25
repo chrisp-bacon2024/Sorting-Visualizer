@@ -32,7 +32,7 @@ export const ALGORITHMS = [
     id: "selection",
     label: "Selection Sort",
     description:
-      "Finds the smallest remaining hue each pass and swaps it into the next open slot on the left.",
+      "Each pass finds the smallest remaining hue and puts it in the next left slot.",
     sort: selectionSort,
   },
   {
