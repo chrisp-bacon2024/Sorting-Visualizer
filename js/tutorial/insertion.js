@@ -5,7 +5,20 @@
 import { STEP } from "../algorithms/types.js";
 import { cellPhrase } from "./helpers.js";
 
-const FINDING = "Finding final position…";
+const FINDING = "Finding its place in the sorted prefix…";
+
+/**
+ * @param {Cell} cell
+ * @returns {TutorialMessage}
+ */
+function insertedMessage(cell) {
+  return {
+    title: "Inserted",
+    body: `${cellPhrase(cell)} is in place with the sorted cells to its left—it will not shift further this insert.`,
+    pause: true,
+    focusIndex: cell.index,
+  };
+}
 
 /** @returns {TutorialMessage} */
 export function getOutro() {
@@ -26,23 +39,26 @@ export function onStep(step, ctx, cells) {
     const left = cells[step.i];
     const right = cells[step.j];
     if (left && right && left.sortKey() <= right.sortKey()) {
-      return {
-        title: "In place",
-        body: `${cellPhrase(right)} is now in its final position.`,
-        pause: true,
-      };
+      return insertedMessage(right);
     }
 
     return {
-      title: "Finding position",
+      title: "Finding place",
       body: FINDING,
       pause: false,
     };
   }
 
   if (step.type === STEP.SWAP) {
+    // After swapping into index 0, the inner loop exits without a final compare
+    // (while j > 0), so the inserted tip must come from this swap step instead.
+    if (step.i === 0) {
+      const cell = cells[0];
+      if (cell) return insertedMessage(cell);
+    }
+
     return {
-      title: "Finding position",
+      title: "Finding place",
       body: FINDING,
       pause: false,
     };

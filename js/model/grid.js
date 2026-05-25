@@ -32,6 +32,8 @@ export class Grid {
     this.cellHeight = 0;
     /** @type {Cell[]} */
     this.cells = [];
+    /** @type {boolean} */
+    this.showHueValues = false;
     this.generateCells();
     this.layout();
   }
@@ -171,7 +173,7 @@ export class Grid {
    */
   draw(ctx) {
     for (const cell of this.cells) {
-      cell.draw(ctx);
+      cell.draw(ctx, this.showHueValues);
     }
   }
 }
@@ -258,8 +260,9 @@ export class Cell {
 
   /**
    * @param {CanvasRenderingContext2D} ctx
+   * @param {boolean} [showHue]
    */
-  draw(ctx) {
+  draw(ctx, showHue = false) {
     const inset = (gutter) => gutter / 2;
 
     if (this._highlightActive) {
@@ -286,5 +289,22 @@ export class Cell {
       this.width - w,
       this.height - w
     );
+
+    if (showHue && this.width >= 14 && this.height >= 14) {
+      const label = String(Math.round(this.hue));
+      const cx = this.x + this.width / 2;
+      const cy = this.y + this.height / 2;
+      const size = Math.max(8, Math.floor(Math.min(this.width, this.height) * 0.28));
+      ctx.save();
+      ctx.font = `600 ${size}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = Math.max(2, size * 0.2);
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.85)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.strokeText(label, cx, cy);
+      ctx.fillText(label, cx, cy);
+      ctx.restore();
+    }
   }
 }

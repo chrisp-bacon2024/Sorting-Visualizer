@@ -3,6 +3,7 @@
  * @property {string} title
  * @property {string} body
  * @property {boolean} [pause] If false, show while the step plays and auto-advance (no Space).
+ * @property {number} [focusIndex] When set, only this cell is highlighted for the message.
  */
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { STEP } from "../algorithms/types.js";

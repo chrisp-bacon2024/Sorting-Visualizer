@@ -82,29 +82,75 @@
             <span class="control__value control__value--spacer" aria-hidden="true"></span>
           </label>
 
-          <div class="control control--actions" aria-label="Sort actions">
-            <span class="control__label control__label--hidden" aria-hidden="true"
-              >Actions</span
-            >
-            <div class="control__field controls__buttons">
-              <button
-                id="shuffle"
-                class="btn btn--secondary"
-                type="button"
-                aria-label="Shuffle colors"
-              >
-                Shuffle
-              </button>
-              <button
-                id="play-toggle"
-                class="btn btn--primary"
-                type="button"
-                aria-label="Start sorting"
-              >
-                Start
-              </button>
+          <label class="control control--hue" for="show-hue">
+            <span class="control__label">Values</span>
+            <div class="control__field control__field--checkbox">
+              <input
+                id="show-hue"
+                class="control__checkbox"
+                type="checkbox"
+                aria-label="Show hue values on cells"
+              />
             </div>
             <span class="control__value control__value--spacer" aria-hidden="true"></span>
+          </label>
+
+          <div class="controls__actions" aria-label="Sort actions">
+            <div class="control control--action">
+              <span class="control__label control__label--hidden" aria-hidden="true"
+                >Actions</span
+              >
+              <div class="control__field">
+                <button
+                  id="shuffle"
+                  class="btn btn--secondary"
+                  type="button"
+                  aria-label="Shuffle colors"
+                >
+                  Shuffle
+                </button>
+              </div>
+              <span class="control__value control__value--spacer" aria-hidden="true"></span>
+            </div>
+            <div class="control control--action">
+              <span class="control__label control__label--hidden" aria-hidden="true"
+                >Play</span
+              >
+              <div class="control__field">
+                <button
+                  id="play-toggle"
+                  class="btn btn--icon btn--playback btn--primary"
+                  type="button"
+                  data-playback="idle"
+                  aria-label="Start sorting"
+                  title="Start sorting"
+                >
+                  <svg
+                    class="btn__icon btn__icon--play"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 5v14l11-7L8 5z" />
+                  </svg>
+                  <svg
+                    class="btn__icon btn__icon--pause"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
+                  </svg>
+                </button>
+              </div>
+              <span class="control__value control__value--spacer" aria-hidden="true"></span>
+            </div>
           </div>
         </div>
 

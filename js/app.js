@@ -78,6 +78,9 @@ export function createApp() {
   const algorithmDescriptionEl = /** @type {HTMLElement} */ (
     document.querySelector("#algorithm-description")
   );
+  const showHueInput = /** @type {HTMLInputElement} */ (
+    document.querySelector("#show-hue")
+  );
   const statusEl = /** @type {HTMLElement} */ (document.querySelector("#status"));
 
   /** @type {Grid | null} */
@@ -274,6 +277,12 @@ export function createApp() {
     }
     animator.requestFrame();
   });
+
+  function syncShowHueValues() {
+    if (grid) {
+      grid.showHueValues = showHueInput.checked;
+    }
+  }
 
   function render() {
     if (!grid) return;
@@ -557,14 +566,17 @@ export function createApp() {
     playbackInput.disabled = !recording;
 
     if (paused) {
-      playToggleBtn.textContent = "Resume";
+      playToggleBtn.dataset.playback = "paused";
       playToggleBtn.setAttribute("aria-label", "Resume sorting");
+      playToggleBtn.title = "Resume sorting";
     } else if (isPlaying) {
-      playToggleBtn.textContent = "Pause";
+      playToggleBtn.dataset.playback = "playing";
       playToggleBtn.setAttribute("aria-label", "Pause sorting");
+      playToggleBtn.title = "Pause sorting";
     } else {
-      playToggleBtn.textContent = "Start";
+      playToggleBtn.dataset.playback = "idle";
       playToggleBtn.setAttribute("aria-label", "Start sorting");
+      playToggleBtn.title = "Start sorting";
     }
   }
 
@@ -692,6 +704,12 @@ export function createApp() {
               stepLabel: `${display} / ${total}`,
             });
 
+            if (message.focusIndex != null && grid) {
+              grid.clearHighlights();
+              grid.highlightCell(message.focusIndex, "active");
+              animator.requestFrame();
+            }
+
             if (message.pause === false) {
               if (!reducedMotion) {
                 await playbackDelay(CONFIG.tutorialStepMs, signal);
@@ -785,6 +803,11 @@ export function createApp() {
   }
 
   colsInput.addEventListener("input", applyGridSize);
+
+  showHueInput.addEventListener("change", () => {
+    syncShowHueValues();
+    animator.requestFrame();
+  });
 
   algorithmTrigger.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -895,6 +918,7 @@ export function createApp() {
 
   refreshAlgorithmOptions();
   populateSpeedPresets();
+  syncShowHueValues();
   syncTutorialChrome();
   syncColsLabel();
   updatePlaybackSlider();
