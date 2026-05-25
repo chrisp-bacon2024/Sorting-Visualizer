@@ -47,3 +47,18 @@ export function getTutorialStepMessage(algoId, step, ctx, cells) {
   if (!mod) return null;
   return mod.onStep(step, ctx, cells);
 }
+
+/**
+ * @param {string} algoId
+ * @param {SortStep} step
+ * @param {TutorialContext} ctx
+ * @param {import('../model/grid.js').Cell[]} cells
+ * @returns {TutorialMessage | null}
+ */
+export function getTutorialBeforeStepMessage(algoId, step, ctx, cells) {
+  const mod = MODULES[algoId];
+  if (!mod || !("getBeforeStep" in mod)) return null;
+  return /** @type {{ getBeforeStep: (step: SortStep, ctx: TutorialContext, cells: import('../model/grid.js').Cell[]) => TutorialMessage | null }} */ (
+    mod
+  ).getBeforeStep(step, ctx, cells);
+}

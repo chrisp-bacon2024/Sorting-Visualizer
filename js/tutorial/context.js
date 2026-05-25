@@ -14,7 +14,7 @@ export function createTutorialContext() {
     bubble: { pass: 1, lastJ: -1 },
     insertion: { activeJ: -1 },
     selection: { passStart: 0 },
-    heap: { siftNoted: false },
+    heap: { heapEnd: -1, buildDone: false },
     quick: { pivot: 0, partitionStarted: false },
     merge: { mergeKey: "" },
     timsort: { inMerge: false, runKey: "" },

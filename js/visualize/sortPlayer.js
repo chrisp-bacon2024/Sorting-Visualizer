@@ -54,6 +54,7 @@ export class SortPlayer {
    *   reducedMotion?: boolean,
    *   tutorialMode?: boolean,
    *   onTutorialStep?: (ctx: { step: SortStep, index: number, signal: AbortSignal }) => Promise<void>,
+   *   onTutorialBeforeStep?: (ctx: { step: SortStep, index: number, signal: AbortSignal }) => Promise<void>,
    * }} options
    * @returns {Promise<'completed' | 'paused' | 'aborted'>}
    */
@@ -66,6 +67,7 @@ export class SortPlayer {
       reducedMotion = false,
       tutorialMode = false,
       onTutorialStep,
+      onTutorialBeforeStep,
     }
   ) {
     this.abort();
@@ -98,6 +100,16 @@ export class SortPlayer {
         const nextIndex = index + 1;
 
         if (tutorialMode) {
+          if (onTutorialBeforeStep) {
+            try {
+              await onTutorialBeforeStep({ step, index, signal });
+            } catch (err) {
+              if (err instanceof DOMException && err.name === "AbortError") {
+                return this.paused ? "paused" : "aborted";
+              }
+              throw err;
+            }
+          }
           onFrame(index, nextIndex);
           if (onTutorialStep) {
             try {

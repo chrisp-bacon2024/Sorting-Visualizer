@@ -23,6 +23,7 @@ import {
 import {
   getTutorialOutro,
   getTutorialStepMessage,
+  getTutorialBeforeStepMessage,
 } from "./tutorial/coach.js";
 import { TutorialPanel } from "./tutorial/tutorialPanel.js";
 import { STEP } from "./algorithms/types.js";
@@ -130,13 +131,43 @@ export function createApp() {
     if (!tutorialContext || !recording || !grid) return;
     const algoId = algorithmSelect.value;
     for (let i = 0; i < internalIndex; i++) {
-      getTutorialStepMessage(
-        algoId,
-        recording.steps[i],
-        tutorialContext,
-        grid.cells
-      );
+      const step = recording.steps[i];
+      getTutorialBeforeStepMessage(algoId, step, tutorialContext, grid.cells);
+      getTutorialStepMessage(algoId, step, tutorialContext, grid.cells);
     }
+  }
+
+  /**
+   * @param {import('./tutorial/helpers.js').TutorialMessage} message
+   * @param {number} index
+   * @param {AbortSignal} signal
+   */
+  async function presentTutorialMessage(message, index, signal) {
+    if (!recording) return;
+
+    const display = toDisplayPlaybackIndex(recording, index);
+    const total = animatedStepCount(recording);
+
+    tutorialPanel.show({
+      ...message,
+      stepLabel: `${display} / ${total}`,
+    });
+
+    if (message.focusIndex != null && grid) {
+      grid.clearHighlights();
+      grid.highlightCell(message.focusIndex, "active");
+      animator.requestFrame();
+    }
+
+    if (message.pause === false) {
+      if (!reducedMotion) {
+        await playbackDelay(CONFIG.tutorialStepMs, signal);
+      }
+      animator.requestFrame();
+      return;
+    }
+
+    await tutorialPanel.waitForContinue();
   }
 
   function showTutorialTipAt(internalIndex) {
@@ -674,6 +705,19 @@ export function createApp() {
           showFrame(from, to);
         }
       },
+      onTutorialBeforeStep: tutorialMode
+        ? async ({ step, index, signal }) => {
+            if (!isTutorialMode() || !tutorialContext || !recording) return;
+            const before = getTutorialBeforeStepMessage(
+              algoId,
+              step,
+              tutorialContext,
+              grid.cells
+            );
+            if (!before) return;
+            await presentTutorialMessage(before, index, signal);
+          }
+        : undefined,
       onTutorialStep: tutorialMode
         ? async ({ step, index, signal }) => {
             if (!isTutorialMode() || !tutorialContext || !recording) return;
@@ -687,9 +731,6 @@ export function createApp() {
                     grid.cells
                   );
 
-            const display = toDisplayPlaybackIndex(recording, index);
-            const total = animatedStepCount(recording);
-
             if (!message) {
               tutorialPanel.hide();
               if (!reducedMotion) {
@@ -699,26 +740,7 @@ export function createApp() {
               return;
             }
 
-            tutorialPanel.show({
-              ...message,
-              stepLabel: `${display} / ${total}`,
-            });
-
-            if (message.focusIndex != null && grid) {
-              grid.clearHighlights();
-              grid.highlightCell(message.focusIndex, "active");
-              animator.requestFrame();
-            }
-
-            if (message.pause === false) {
-              if (!reducedMotion) {
-                await playbackDelay(CONFIG.tutorialStepMs, signal);
-              }
-              animator.requestFrame();
-              return;
-            }
-
-            await tutorialPanel.waitForContinue();
+            await presentTutorialMessage(message, index, signal);
           }
         : undefined,
     });

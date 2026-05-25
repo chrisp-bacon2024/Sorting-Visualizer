@@ -3,13 +3,62 @@
 /** @typedef {import('../algorithms/types.js').SortStep} SortStep */
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { STEP } from "../algorithms/types.js";
-import { swapMessage, cellPhrase } from "./helpers.js";
+import { cellPhrase } from "./helpers.js";
+
+const BUILDING =
+  "Arranging the grid into a max-heap—each parent larger than its children.";
+const RESTORING =
+  "Fixing the heap so the largest remaining hue is back at the root.";
 
 /** @returns {TutorialMessage} */
 export function getOutro() {
   return {
     title: "Done",
-    body: "Heap sort finished—each extract moved the current maximum to the tail until the grid is sorted by hue.",
+    body: "All cells are sorted by hue.",
+  };
+}
+
+/**
+ * @param {TutorialContext} ctx
+ * @param {Cell[]} cells
+ */
+function initHeapState(ctx, cells) {
+  const state = /** @type {{ heapEnd: number, buildDone: boolean }} */ (ctx.heap);
+  if (state.heapEnd < 0) {
+    state.heapEnd = cells.length - 1;
+  }
+}
+
+/**
+ * Pause before each extract—the heap is valid, swap has not run yet.
+ *
+ * @param {SortStep} step
+ * @param {TutorialContext} ctx
+ * @param {Cell[]} cells
+ * @returns {TutorialMessage | null}
+ */
+export function getBeforeStep(step, ctx, cells) {
+  const state = /** @type {{ heapEnd: number, buildDone: boolean }} */ (ctx.heap);
+  initHeapState(ctx, cells);
+
+  if (step.type !== STEP.SWAP || step.i !== 0 || step.j !== state.heapEnd) return null;
+
+  return {
+    title: "Heap ready",
+    body: "Max-heap is built—each parent is larger than its children.",
+    focusIndex: 0,
+  };
+}
+
+/**
+ * @param {boolean} building
+ * @returns {TutorialMessage}
+ */
+function heapWorkMessage(building) {
+  return {
+    title: building ? "Building" : "Restoring",
+    body: building ? BUILDING : RESTORING,
+    pause: false,
   };
 }
 
@@ -20,25 +69,25 @@ export function getOutro() {
  * @returns {TutorialMessage | null}
  */
 export function onStep(step, ctx, cells) {
-  const state = /** @type {{ siftNoted: boolean }} */ (ctx.heap);
+  const state = /** @type {{ heapEnd: number, buildDone: boolean }} */ (ctx.heap);
+  initHeapState(ctx, cells);
+
+  if (step.type === STEP.COMPARE) {
+    return heapWorkMessage(!state.buildDone);
+  }
 
   if (step.type === STEP.SWAP) {
-    if (step.i === 0 && step.j > 0) {
-      state.siftNoted = false;
+    if (step.i === 0 && step.j === state.heapEnd) {
+      state.buildDone = true;
+      state.heapEnd -= 1;
       return {
-        title: "Extract maximum",
-        body: `Swapped ${cellPhrase(cells[0])} and ${cellPhrase(cells[step.j])}—the largest hue moved to the end of the unsorted region into its final sorted spot.`,
+        title: "Placed",
+        body: `Swapped the root with the heap's last cell—${cellPhrase(cells[step.j])} is in its sorted position.`,
+        focusIndex: step.j,
       };
     }
 
-    if (!state.siftNoted) {
-      state.siftNoted = true;
-      return {
-        title: "Sift down",
-        body: `${swapMessage(cells, step.i, step.j).body} The heap was restored so each parent is larger than its children.`,
-      };
-    }
-    return null;
+    return heapWorkMessage(!state.buildDone);
   }
 
   return null;

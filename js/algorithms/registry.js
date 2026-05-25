@@ -39,7 +39,7 @@ export const ALGORITHMS = [
     id: "heap",
     label: "Heap Sort",
     description:
-      "Uses a max-heap to repeatedly pull the largest hue to the end, then restores the heap.",
+      "Builds a max-heap, locks the largest hue at the tail each round, then re-heapifies from the root.",
     sort: heapSort,
   },
   {
