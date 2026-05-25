@@ -28,7 +28,7 @@ export function onStep(step, ctx, cells) {
       const base = compareMessage(cells, step.i, step.j);
       return {
         title: "Insert into sorted section",
-        body: `${base.body} ${cellPhrase(cells[step.j])} is being slid left into the sorted prefix.`,
+        body: `${base.body} ${cellPhrase(cells[step.j])} was pulled left into the sorted prefix.`,
       };
     }
     return null;
@@ -37,7 +37,7 @@ export function onStep(step, ctx, cells) {
   if (step.type === STEP.SWAP) {
     return {
       title: "Shift left",
-      body: `${swapMessage(cells, step.i, step.j).body} It is still too large for this slot, so it shifts one step left.`,
+      body: `${swapMessage(cells, step.i, step.j).body} It was still too large for that slot, so it shifted one step left.`,
     };
   }
 

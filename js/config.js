@@ -1,8 +1,11 @@
-/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, defaultSpeedPreset: number, maxFastPlaybackMs: number }>} */
+/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, tutorialCols: number, tutorialStepMs: number, defaultSpeedPreset: number, maxFastPlaybackMs: number }>} */
 export const CONFIG = {
   cols: 20,
   minCols: 5,
   maxCols: 40,
+  tutorialCols: 5,
+  /** Delay between non-key tutorial steps (compares/swaps without a tip). */
+  tutorialStepMs: 220,
   defaultSpeedPreset: 3,
   maxFastPlaybackMs: 9500,
 };

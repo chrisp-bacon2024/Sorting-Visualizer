@@ -30,15 +30,15 @@ export function onStep(step, ctx, cells) {
     const pass = state.pass;
     const base = compareMessage(cells, step.i, step.j);
     return {
-      title: `Pass ${pass} — start sweep`,
-      body: `${base.body} Each pass walks left to right; the sorted region grows from the right.`,
+      title: `Pass ${pass} — sweep started`,
+      body: `${base.body} This pass started a left-to-right sweep; the sorted region grew from the right.`,
     };
   }
 
   if (step.type === STEP.SWAP) {
     return {
-      title: "Out of order — swap",
-      body: `${swapMessage(cells, step.i, step.j).body} Larger hues bubble toward the end of this pass.`,
+      title: "Out of order — swapped",
+      body: `${swapMessage(cells, step.i, step.j).body} A larger hue bubbled toward the end of this pass.`,
     };
   }
 

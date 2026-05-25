@@ -30,7 +30,7 @@ export function getTutorialOutro(algoId) {
     ? mod.getOutro()
     : {
         title: "Done",
-        body: "The grid is sorted by hue. Press Space to finish.",
+        body: "The grid was sorted by hue. Press Space to finish.",
       };
 }
 

@@ -38,8 +38,8 @@ export function cellPhrase(cell) {
  * @param {import('../algorithms/types.js').SortStep} step
  */
 export function stepActionLabel(step) {
-  if (step.type === STEP.COMPARE) return "Compare";
-  if (step.type === STEP.SWAP) return "Swap";
+  if (step.type === STEP.COMPARE) return "Compared";
+  if (step.type === STEP.SWAP) return "Swapped";
   if (step.type === STEP.DONE) return "Done";
   return "Step";
 }
@@ -54,8 +54,8 @@ export function compareMessage(cells, i, j) {
   const a = cellPhrase(cells[i]);
   const b = cellPhrase(cells[j]);
   return {
-    title: "Compare",
-    body: `Comparing ${a} and ${b}. If ${a} has a larger hue than ${b}, they are out of place.`,
+    title: "Compared",
+    body: `Compared ${a} and ${b}. If ${a} had a larger hue than ${b}, they were out of place.`,
   };
 }
 
@@ -67,8 +67,8 @@ export function compareMessage(cells, i, j) {
  */
 export function swapMessage(cells, i, j) {
   return {
-    title: "Swap",
-    body: `Swapping ${cellPhrase(cells[i])} and ${cellPhrase(cells[j])} so the larger hue moves toward its sorted position.`,
+    title: "Swapped",
+    body: `Swapped ${cellPhrase(cells[i])} and ${cellPhrase(cells[j])} so the larger hue moved toward its sorted position.`,
   };
 }
 
@@ -82,6 +82,6 @@ export function messageForStep(cells, step) {
   if (step.type === STEP.SWAP) return swapMessage(cells, step.i, step.j);
   return {
     title: "Step",
-    body: "Press Space for the next step.",
+    body: "Press Space to play to the next tip.",
   };
 }

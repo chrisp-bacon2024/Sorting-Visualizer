@@ -28,7 +28,7 @@ export function onStep(step, ctx, cells) {
     state.mergeKey = key;
     return {
       title: "Merge runs",
-      body: `${compareMessage(cells, step.i, step.j).body} Two sorted sections are combined by always taking the smaller leading hue.`,
+      body: `${compareMessage(cells, step.i, step.j).body} Two sorted sections were merged by taking the smaller leading hue.`,
     };
   }
 
@@ -37,7 +37,7 @@ export function onStep(step, ctx, cells) {
     state.mergeKey = "";
     return {
       title: "Write merged cell",
-      body: `${swapMessage(cells, step.i, step.j).body} The chosen hue is copied into ${cellPhrase(cells[step.j])} as the merged output grows.`,
+      body: `${swapMessage(cells, step.i, step.j).body} The chosen hue was written into ${cellPhrase(cells[step.j])} as the merged output grew.`,
     };
   }
 

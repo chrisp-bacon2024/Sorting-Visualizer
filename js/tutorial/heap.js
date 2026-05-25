@@ -27,7 +27,7 @@ export function onStep(step, ctx, cells) {
       state.siftNoted = false;
       return {
         title: "Extract maximum",
-        body: `Swapping ${cellPhrase(cells[0])} and ${cellPhrase(cells[step.j])}—the largest hue moves to the end of the unsorted region into its final sorted spot.`,
+        body: `Swapped ${cellPhrase(cells[0])} and ${cellPhrase(cells[step.j])}—the largest hue moved to the end of the unsorted region into its final sorted spot.`,
       };
     }
 
@@ -35,7 +35,7 @@ export function onStep(step, ctx, cells) {
       state.siftNoted = true;
       return {
         title: "Sift down",
-        body: `${swapMessage(cells, step.i, step.j).body} The heap is restored so each parent is larger than its children.`,
+        body: `${swapMessage(cells, step.i, step.j).body} The heap was restored so each parent is larger than its children.`,
       };
     }
     return null;

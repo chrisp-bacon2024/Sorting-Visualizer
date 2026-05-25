@@ -6,7 +6,7 @@ import { STEP } from "../algorithms/types.js";
  * @param {number} ms
  * @param {AbortSignal} [signal]
  */
-function delay(ms, signal) {
+export function playbackDelay(ms, signal) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new DOMException("Aborted", "AbortError"));
@@ -53,7 +53,7 @@ export class SortPlayer {
    *   onFrame: (fromIndex: number, toIndex: number) => void,
    *   reducedMotion?: boolean,
    *   tutorialMode?: boolean,
-   *   onTutorialStep?: (ctx: { step: SortStep, index: number }) => Promise<void>,
+   *   onTutorialStep?: (ctx: { step: SortStep, index: number, signal: AbortSignal }) => Promise<void>,
    * }} options
    * @returns {Promise<'completed' | 'paused' | 'aborted'>}
    */
@@ -84,7 +84,7 @@ export class SortPlayer {
           onFrame(recording.steps.length, recording.steps.length);
           if (tutorialMode && onTutorialStep) {
             try {
-              await onTutorialStep({ step, index });
+              await onTutorialStep({ step, index, signal });
             } catch (err) {
               if (err instanceof DOMException && err.name === "AbortError") {
                 return this.paused ? "paused" : "aborted";
@@ -101,7 +101,7 @@ export class SortPlayer {
           onFrame(index, nextIndex);
           if (onTutorialStep) {
             try {
-              await onTutorialStep({ step, index });
+              await onTutorialStep({ step, index, signal });
             } catch (err) {
               if (err instanceof DOMException && err.name === "AbortError") {
                 return this.paused ? "paused" : "aborted";
@@ -122,7 +122,7 @@ export class SortPlayer {
         onFrame(fromIndex, index);
 
         const stepDelay = reducedMotion ? 0 : settings.delayMs;
-        await delay(stepDelay, signal);
+        await playbackDelay(stepDelay, signal);
       }
 
       return "completed";

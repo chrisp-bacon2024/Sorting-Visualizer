@@ -7,7 +7,7 @@ import { Grid } from "./model/grid.js";
 import { ALGORITHMS, getAlgorithm } from "./algorithms/registry.js";
 import { CanvasView } from "./visualize/canvasView.js";
 import { Animator } from "./visualize/animator.js";
-import { SortPlayer } from "./visualize/sortPlayer.js";
+import { SortPlayer, playbackDelay } from "./visualize/sortPlayer.js";
 import { recordSort, seekToStep, seekForward } from "./sort/sortSession.js";
 import {
   animatedStepCount,
@@ -107,6 +107,8 @@ export function createApp() {
 
   /** @type {import('./tutorial/context.js').TutorialContext | null} */
   let tutorialContext = null;
+  /** @type {number | null} Grid size to restore after leaving Tutorial speed */
+  let colsBeforeTutorial = null;
 
   function isTutorialMode() {
     const preset =
@@ -114,11 +116,119 @@ export function createApp() {
     return Boolean(preset.tutorial);
   }
 
+  function warmTutorialContextThrough(internalIndex) {
+    if (!tutorialContext || !recording || !grid) return;
+    const algoId = algorithmSelect.value;
+    for (let i = 0; i < internalIndex; i++) {
+      getTutorialStepMessage(
+        algoId,
+        recording.steps[i],
+        tutorialContext,
+        grid.cells
+      );
+    }
+  }
+
+  function showTutorialTipAt(internalIndex) {
+    if (!isTutorialMode() || !recording || !grid) return;
+
+    tutorialContext = createTutorialContext();
+    setContextCols(tutorialContext, grid.cols);
+    warmTutorialContextThrough(internalIndex);
+
+    const algoId = algorithmSelect.value;
+    const total = animatedStepCount(recording);
+    const display = toDisplayPlaybackIndex(recording, internalIndex);
+
+    if (internalIndex >= recording.steps.length) {
+      tutorialPanel.show({
+        ...getTutorialOutro(algoId),
+        stepLabel: `${total} / ${total}`,
+      });
+      return;
+    }
+
+    if (internalIndex === 0) {
+      tutorialPanel.hide();
+      return;
+    }
+
+    const step = recording.steps[internalIndex - 1];
+    const message =
+      step.type === STEP.DONE
+        ? getTutorialOutro(algoId)
+        : getTutorialStepMessage(algoId, step, tutorialContext, grid.cells);
+
+    if (!message) {
+      tutorialPanel.hide();
+      return;
+    }
+
+    tutorialPanel.show({
+      ...message,
+      stepLabel: `${display} / ${total}`,
+    });
+  }
+
+  function interruptTutorialPlayback() {
+    if (!isTutorialMode() || appState !== STATE.RUNNING) return;
+    tutorialPanel.cancelWait();
+    sortPlayer.pause();
+  }
+
+  /**
+   * @param {number} displayIndex
+   */
+  function applyTutorialScrub(displayIndex) {
+    if (!recording || !grid || !isTutorialMode()) return;
+
+    const total = animatedStepCount(recording);
+    const clamped = Math.max(0, Math.min(displayIndex, total));
+    const wasRunning = appState === STATE.RUNNING;
+
+    interruptTutorialPlayback();
+
+    playbackIndex = toInternalPlaybackIndex(recording, clamped);
+    seek(playbackIndex);
+    lastRenderedIndex = playbackIndex;
+    playbackInput.value = String(clamped);
+    const recordMs = algoResults.get(algorithmSelect.value)?.recordMs;
+    playbackValue.textContent = formatPlaybackLabel(
+      clamped,
+      total,
+      recordMs
+    );
+    showTutorialTipAt(playbackIndex);
+
+    if (wasRunning) {
+      appState = STATE.PAUSED;
+      setControlsPlayback(true, true);
+      statusEl.textContent = `Tutorial — step ${clamped} / ${total} (Resume or scrub)`;
+    }
+  }
+
   function syncTutorialChrome() {
-    tutorialPanel.setEnabled(isTutorialMode());
-    if (!isTutorialMode()) {
+    const tutorial = isTutorialMode();
+    tutorialPanel.setEnabled(tutorial);
+    colsInput.disabled = tutorial;
+
+    if (tutorial) {
+      const current = Number(colsInput.value);
+      if (current !== CONFIG.tutorialCols) {
+        if (colsBeforeTutorial === null) {
+          colsBeforeTutorial = current;
+        }
+        colsInput.value = String(CONFIG.tutorialCols);
+        applyGridSize();
+      }
+    } else {
       tutorialPanel.cancelWait();
       tutorialContext = null;
+      if (colsBeforeTutorial !== null) {
+        colsInput.value = String(colsBeforeTutorial);
+        colsBeforeTutorial = null;
+        applyGridSize();
+      }
     }
   }
 
@@ -366,7 +476,7 @@ export function createApp() {
     algorithmTrigger.disabled = busy;
     shuffleBtn.disabled = busy;
     speedSelect.disabled = tutorial;
-    playbackInput.disabled = !recording || tutorial;
+    playbackInput.disabled = !recording;
 
     if (paused) {
       playToggleBtn.textContent = "Resume";
@@ -437,14 +547,15 @@ export function createApp() {
     appState = STATE.RUNNING;
     setControlsPlayback(true);
     statusEl.textContent = tutorialMode
-      ? "Tutorial — Space at key moments"
+      ? "Tutorial — Space at tips; steps play slowly between"
       : "Sorting…";
 
     lastRenderedIndex = fromIndex;
 
-    if (tutorialMode && !tutorialContext) {
+    if (tutorialMode) {
       tutorialContext = createTutorialContext();
       setContextCols(tutorialContext, grid.cols);
+      warmTutorialContextThrough(fromIndex);
     }
 
     const result = await sortPlayer.playRecording(recording, fromIndex, {
@@ -457,7 +568,7 @@ export function createApp() {
         }
       },
       onTutorialStep: tutorialMode
-        ? async ({ step, index }) => {
+        ? async ({ step, index, signal }) => {
             if (!isTutorialMode() || !tutorialContext || !recording) return;
             const message =
               step?.type === STEP.DONE
@@ -468,8 +579,13 @@ export function createApp() {
                     tutorialContext,
                     grid.cells
                   );
+
             if (!message) {
               tutorialPanel.hide();
+              if (!reducedMotion) {
+                await playbackDelay(CONFIG.tutorialStepMs, signal);
+              }
+              animator.requestFrame();
               return;
             }
 
@@ -580,19 +696,25 @@ export function createApp() {
   });
 
   playbackInput.addEventListener("pointerdown", () => {
-    if (isTutorialMode()) return;
+    if (!recording) return;
     isScrubbing = true;
-    if (appState === STATE.RUNNING) {
+    if (isTutorialMode()) {
+      interruptTutorialPlayback();
+    } else if (appState === STATE.RUNNING) {
       sortPlayer.pause();
     }
   });
 
   playbackInput.addEventListener("input", () => {
-    if (!recording || isTutorialMode()) return;
-    playbackIndex = toInternalPlaybackIndex(
-      recording,
-      Number(playbackInput.value)
-    );
+    if (!recording) return;
+    const displayIndex = Number(playbackInput.value);
+
+    if (isTutorialMode()) {
+      applyTutorialScrub(displayIndex);
+      return;
+    }
+
+    playbackIndex = toInternalPlaybackIndex(recording, displayIndex);
     seek(playbackIndex);
     if (appState === STATE.RUNNING) {
       appState = STATE.PAUSED;
@@ -601,6 +723,22 @@ export function createApp() {
       statusEl.textContent = `Paused at step ${toDisplayPlaybackIndex(recording, playbackIndex)} / ${total}`;
     }
   });
+
+  const mainStage = document.querySelector(".main__stage");
+  if (mainStage) {
+    mainStage.addEventListener(
+      "wheel",
+      (e) => {
+        if (!isTutorialMode() || !recording) return;
+
+        e.preventDefault();
+        const current = toDisplayPlaybackIndex(recording, playbackIndex);
+        const delta = e.deltaY > 0 ? 1 : -1;
+        applyTutorialScrub(current + delta);
+      },
+      { passive: false }
+    );
+  }
 
   playbackInput.addEventListener("pointerup", () => {
     isScrubbing = false;
@@ -620,8 +758,10 @@ export function createApp() {
     syncTutorialChrome();
     if (appState !== STATE.IDLE) {
       stopPlayback({ skipStatus: true });
+    }
+    if (appState === STATE.IDLE) {
       statusEl.textContent = isTutorialMode()
-        ? "Tutorial — press Start to sort"
+        ? `Tutorial — ${CONFIG.tutorialCols}×${CONFIG.tutorialCols} grid, press Start`
         : `${grid?.cols ?? CONFIG.cols}×${grid?.cols ?? CONFIG.cols} grid — press Start to sort`;
     }
   });

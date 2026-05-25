@@ -28,7 +28,7 @@ export function onStep(step, ctx, cells) {
     const base = compareMessage(cells, step.i, step.j);
     return {
       title: `Scan from ${cellPhrase(cells[step.i])}`,
-      body: `${base.body} Scanning the rest of the grid for the smallest hue to place here.`,
+      body: `${base.body} The algorithm scanned the rest of the grid for the smallest hue to place here.`,
     };
   }
 
@@ -36,7 +36,7 @@ export function onStep(step, ctx, cells) {
     state.passStart += 1;
     return {
       title: "Place next smallest",
-      body: `${swapMessage(cells, step.i, step.j).body} The minimum is swapped into ${cellPhrase(cells[step.i])}, extending the sorted left region.`,
+      body: `${swapMessage(cells, step.i, step.j).body} The minimum was placed in ${cellPhrase(cells[step.i])}, extending the sorted left region.`,
     };
   }
 

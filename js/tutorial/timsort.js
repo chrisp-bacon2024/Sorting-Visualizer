@@ -31,14 +31,14 @@ export function onStep(step, ctx, cells) {
       state.inMerge = false;
       return {
         title: "Extend a run",
-        body: `${compareMessage(cells, step.i, step.j).body} Tim sort checks whether adjacent cells continue an increasing run.`,
+        body: `${compareMessage(cells, step.i, step.j).body} Tim sort checked whether adjacent cells continued an increasing run.`,
       };
     }
     if (!state.inMerge) {
       state.inMerge = true;
       return {
         title: "Merge runs",
-        body: `${compareMessage(cells, step.i, step.j).body} Two sorted runs from the stack are merged like in merge sort.`,
+        body: `${compareMessage(cells, step.i, step.j).body} Two sorted runs from the stack were merged like in merge sort.`,
       };
     }
     return null;
@@ -53,7 +53,7 @@ export function onStep(step, ctx, cells) {
     }
     return {
       title: "Fix short run",
-      body: `${swapMessage(cells, step.i, step.j).body} A short run is lengthened by shifting hues left.`,
+      body: `${swapMessage(cells, step.i, step.j).body} A short run was lengthened by shifting hues left.`,
     };
   }
 

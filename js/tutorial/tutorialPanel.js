@@ -25,7 +25,7 @@ export class TutorialPanel {
       if (this.bar.hidden || !this._resolveContinue) return;
       e.preventDefault();
       e.stopPropagation();
-      this._finishWait();
+      this.continueStep();
     };
     document.addEventListener("keydown", this._onKeyDown, true);
     this._enabled = false;
@@ -52,6 +52,11 @@ export class TutorialPanel {
   hide() {
     this.bar.hidden = true;
     this._clearWait();
+  }
+
+  /** Advance to the next step (Space or programmatic continue). */
+  continueStep() {
+    this._finishWait();
   }
 
   _finishWait() {

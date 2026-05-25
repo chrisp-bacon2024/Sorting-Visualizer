@@ -34,7 +34,7 @@ export function onStep(step, ctx, cells) {
       const pivotPhrase = cellPhrase(cells[state.pivot]);
       return {
         title: "Partition",
-        body: `${compareMessage(cells, step.i, step.j).body} Cells are compared to the pivot ${pivotPhrase} to decide which side they belong on.`,
+        body: `${compareMessage(cells, step.i, step.j).body} A cell was compared to the pivot ${pivotPhrase} to decide which side it belonged on.`,
       };
     }
     return null;
@@ -45,7 +45,7 @@ export function onStep(step, ctx, cells) {
     if (step.i !== state.pivot && step.j !== state.pivot) return null;
     return {
       title: "Pivot in place",
-      body: `${swapMessage(cells, step.i, step.j).body} The pivot is now where everything left is smaller and everything right is larger.`,
+      body: `${swapMessage(cells, step.i, step.j).body} The pivot ended up where everything to its left is smaller and everything to its right is larger.`,
     };
   }
 
