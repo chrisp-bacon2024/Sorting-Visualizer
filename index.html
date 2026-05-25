@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Sorting algorithm visualizer — random color grid"
+    />
+    <title>Sorting Visualizer</title>
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/layout.css" />
+    <link rel="stylesheet" href="css/components.css" />
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <h1 class="header__title">Sorting Visualizer</h1>
+        <p class="header__subtitle">Sort colors by hue</p>
+      </header>
+
+      <section class="controls" aria-label="Visualizer controls">
+        <div class="controls__row">
+          <label class="control control--algorithm" for="algorithm">
+            <span class="control__label">Algorithm</span>
+            <div class="control__field">
+              <div class="algo-picker">
+                <select
+                  id="algorithm"
+                  class="algo-picker__native"
+                  tabindex="-1"
+                  aria-hidden="true"
+                ></select>
+                <div class="algo-picker__anchor">
+                  <button
+                    type="button"
+                    id="algorithm-trigger"
+                    class="algo-picker__trigger control__input control__input--select"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                    aria-controls="algorithm-list"
+                  ></button>
+                  <ul
+                    id="algorithm-list"
+                    class="algo-picker__list"
+                    role="listbox"
+                    hidden
+                  ></ul>
+                </div>
+                <span
+                  id="algorithm-measure"
+                  class="control__input control__input--select algorithm-measure"
+                  aria-hidden="true"
+                ></span>
+              </div>
+            </div>
+            <span class="control__value control__value--spacer" aria-hidden="true"></span>
+          </label>
+
+          <label class="control control--compact control--grid-size" for="grid-cols">
+            <span class="control__label">Grid size</span>
+            <div class="control__field">
+              <input
+                id="grid-cols"
+                class="control__input control__input--range"
+                type="range"
+                min="5"
+                max="40"
+                value="20"
+              />
+              <output id="grid-cols-value" class="control__value" for="grid-cols"
+                >20</output
+              >
+            </div>
+            <span class="control__value control__value--spacer" aria-hidden="true"></span>
+          </label>
+
+          <label class="control control--compact" for="speed-preset">
+            <span class="control__label">Speed</span>
+            <div class="control__field">
+              <select
+                id="speed-preset"
+                class="control__input control__input--select"
+              ></select>
+            </div>
+            <span class="control__value control__value--spacer" aria-hidden="true"></span>
+          </label>
+
+          <div class="control control--actions" aria-label="Sort actions">
+            <span class="control__label control__label--hidden" aria-hidden="true"
+              >Actions</span
+            >
+            <div class="control__field controls__buttons">
+              <button
+                id="shuffle"
+                class="btn btn--secondary"
+                type="button"
+                aria-label="Shuffle colors"
+              >
+                Shuffle
+              </button>
+              <button
+                id="play-toggle"
+                class="btn btn--primary"
+                type="button"
+                aria-label="Start sorting"
+              >
+                Start
+              </button>
+            </div>
+            <span class="control__value control__value--spacer" aria-hidden="true"></span>
+          </div>
+        </div>
+
+        <div class="controls__playback">
+          <label class="control control--playback" for="playback">
+            <span class="control__label">Playback</span>
+            <div class="control__field">
+              <input
+                id="playback"
+                class="control__input control__input--range"
+                type="range"
+                min="0"
+                max="0"
+                value="0"
+                disabled
+                aria-label="Scrub through sort steps"
+              />
+            </div>
+            <output id="playback-value" class="control__value" for="playback"
+              >0 / 0</output
+            >
+          </label>
+        </div>
+      </section>
+
+      <main class="main">
+        <div class="canvas-container">
+          <canvas id="canvas" aria-label="Color grid canvas"></canvas>
+        </div>
+        <p id="status" class="status" aria-live="polite">Loading…</p>
+      </main>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
