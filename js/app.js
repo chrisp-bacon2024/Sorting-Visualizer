@@ -6,9 +6,16 @@ import {
 import { Grid } from "./model/grid.js";
 import { ALGORITHMS, getAlgorithm } from "./algorithms/registry.js";
 import { CanvasView } from "./visualize/canvasView.js";
+import { HeapTreeView } from "./visualize/heapTreeView.js";
 import { Animator } from "./visualize/animator.js";
 import { SortPlayer, playbackDelay } from "./visualize/sortPlayer.js";
-import { recordSort, seekToStep, seekForward } from "./sort/sortSession.js";
+import {
+  recordSort,
+  seekToStep,
+  seekForward,
+  restoreGridState,
+  mutateStep,
+} from "./sort/sortSession.js";
 import {
   animatedStepCount,
   formatAlgoOptionLabel,
@@ -25,6 +32,7 @@ import {
   getTutorialStepMessage,
   getTutorialBeforeStepMessage,
 } from "./tutorial/coach.js";
+import { getHeapSize } from "./tutorial/heap.js";
 import { TutorialPanel } from "./tutorial/tutorialPanel.js";
 import { STEP } from "./algorithms/types.js";
 
@@ -42,6 +50,12 @@ function compareByHue(a, b) {
 export function createApp() {
   const canvas = /** @type {HTMLCanvasElement} */ (
     document.querySelector("#canvas")
+  );
+  const heapTreePanel = /** @type {HTMLElement} */ (
+    document.querySelector("#heap-tree-panel")
+  );
+  const heapTreeCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#heap-tree-canvas")
   );
   const colsInput = /** @type {HTMLInputElement} */ (
     document.querySelector("#grid-cols")
@@ -127,14 +141,61 @@ export function createApp() {
     return Boolean(preset.tutorial);
   }
 
+  function shouldShowHeapTree() {
+    return isTutorialMode() && algorithmSelect.value === "heap";
+  }
+
+  function syncHeapTreeChrome() {
+    if (!heapTreePanel) return;
+    const show = shouldShowHeapTree();
+    heapTreePanel.hidden = !show;
+    if (show && heapTreeView) {
+      heapTreeView.resize();
+      animator.requestFrame();
+    }
+  }
+
+  /**
+   * @returns {number}
+   */
+  function getActiveHeapSize() {
+    if (!grid) return 0;
+    if (sortComplete) return 0;
+    if (recording) {
+      if (playbackIndex >= recording.steps.length) return 0;
+      const step = recording.steps[playbackIndex];
+      if (step?.type === STEP.DONE) return 0;
+      if (
+        playbackIndex > 0 &&
+        recording.steps[playbackIndex - 1]?.type === STEP.DONE
+      ) {
+        return 0;
+      }
+    }
+    if (tutorialContext) {
+      return getHeapSize(tutorialContext, grid.cellCount);
+    }
+    return grid.cellCount;
+  }
+
   function warmTutorialContextThrough(internalIndex) {
     if (!tutorialContext || !recording || !grid) return;
     const algoId = algorithmSelect.value;
+
+    restoreGridState(grid, recording.snapshot);
     for (let i = 0; i < internalIndex; i++) {
       const step = recording.steps[i];
       getTutorialBeforeStepMessage(algoId, step, tutorialContext, grid.cells);
+      mutateStep(grid, step);
       getTutorialStepMessage(algoId, step, tutorialContext, grid.cells);
     }
+    playbackIndex = seekToStep(grid, recording, internalIndex);
+    lastRenderedIndex = playbackIndex;
+    updatePlaybackSlider();
+    if (heapTreeView && shouldShowHeapTree()) {
+      heapTreeView.resize();
+    }
+    animator.requestFrame();
   }
 
   /**
@@ -153,13 +214,19 @@ export function createApp() {
       stepLabel: `${display} / ${total}`,
     });
 
-    if (message.focusIndex != null && grid) {
+    if (message.title === "Done" && grid) {
+      grid.clearHighlights();
+      animator.requestFrame();
+    } else if (message.focusIndex != null && grid) {
       grid.clearHighlights();
       grid.highlightCell(message.focusIndex, "active");
       animator.requestFrame();
     }
 
     if (message.pause === false) {
+      if (appState === STATE.RUNNING) {
+        setControlsPlayback(true);
+      }
       if (!reducedMotion) {
         await playbackDelay(CONFIG.tutorialStepMs, signal);
       }
@@ -167,7 +234,13 @@ export function createApp() {
       return;
     }
 
+    if (appState === STATE.RUNNING) {
+      setTutorialContinueButton();
+    }
     await tutorialPanel.waitForContinue();
+    if (appState === STATE.RUNNING) {
+      setControlsPlayback(true);
+    }
   }
 
   function showTutorialTipAt(internalIndex) {
@@ -182,6 +255,8 @@ export function createApp() {
     const display = toDisplayPlaybackIndex(recording, internalIndex);
 
     if (internalIndex >= recording.steps.length) {
+      grid?.clearHighlights();
+      animator.requestFrame();
       tutorialPanel.show({
         ...getTutorialOutro(algoId),
         stepLabel: `${total} / ${total}`,
@@ -205,6 +280,11 @@ export function createApp() {
       return;
     }
 
+    if (step.type === STEP.DONE) {
+      grid?.clearHighlights();
+      animator.requestFrame();
+    }
+
     tutorialPanel.show({
       ...message,
       stepLabel: `${display} / ${total}`,
@@ -221,20 +301,30 @@ export function createApp() {
    * Stop the current run and start again at `resumeIndex` (e.g. after speed change).
    * @param {number} resumeIndex
    */
-  function requestPlaybackResync(resumeIndex) {
-    playbackSession += 1;
+  async function requestPlaybackResync(resumeIndex) {
     pendingPlaybackRestart = null;
     tutorialPanel.cancelWait();
     tutorialPanel.hide();
     tutorialContext = null;
-    sortPlayer.pause();
+    sortPlayer.abort();
     skipAbortedStatus = true;
     appState = STATE.RUNNING;
     setControlsPlayback(true);
     statusEl.textContent = isTutorialMode()
       ? "Tutorial — Space at key steps; neighbors play automatically"
       : "Sorting…";
-    void runPlayback(resumeIndex);
+
+    if (recording && grid) {
+      playbackIndex = Math.max(
+        0,
+        Math.min(resumeIndex, recording.steps.length)
+      );
+      seek(playbackIndex);
+      lastRenderedIndex = playbackIndex;
+      updatePlaybackSlider();
+    }
+
+    await runPlayback(playbackIndex);
   }
 
   /**
@@ -276,6 +366,7 @@ export function createApp() {
     const tutorial = isTutorialMode();
     tutorialPanel.setEnabled(tutorial);
     colsInput.disabled = tutorial;
+    syncHeapTreeChrome();
 
     if (tutorial) {
       const current = Number(colsInput.value);
@@ -309,15 +400,23 @@ export function createApp() {
     animator.requestFrame();
   });
 
+  const heapTreeView = heapTreeCanvas ? new HeapTreeView(heapTreeCanvas) : null;
+
   function syncShowHueValues() {
     if (grid) {
       grid.showHueValues = showHueInput.checked;
+    }
+    if (heapTreeView) {
+      heapTreeView.showHueValues = showHueInput.checked;
     }
   }
 
   function render() {
     if (!grid) return;
     view.render((ctx) => grid.draw(ctx));
+    if (heapTreeView && shouldShowHeapTree()) {
+      heapTreeView.render(grid.cells, getActiveHeapSize());
+    }
   }
 
   animator.start(render);
@@ -438,6 +537,7 @@ export function createApp() {
     updateAlgorithmTriggerLabel();
     updateAlgorithmDescription();
     updateAlgorithmSelectWidth();
+    syncHeapTreeChrome();
     setAlgorithmMenuOpen(false);
 
     for (const item of algorithmList.querySelectorAll("[role=option]")) {
@@ -471,7 +571,7 @@ export function createApp() {
     updatePlaybackSlider();
 
     if (wasRunning) {
-      requestPlaybackResync(0);
+      void requestPlaybackResync(0);
       return;
     }
 
@@ -591,10 +691,26 @@ export function createApp() {
     statusEl.textContent = `${cols}×${cols} grid`;
   }
 
+  function setTutorialContinueButton() {
+    playToggleBtn.dataset.playback = "continue";
+    playToggleBtn.setAttribute("aria-label", "Continue tutorial step");
+    playToggleBtn.title = "Continue tutorial step";
+  }
+
   function setControlsPlayback(isPlaying, paused = false) {
     const busy = isPlaying || paused;
     shuffleBtn.disabled = busy;
     playbackInput.disabled = !recording;
+
+    if (
+      isTutorialMode() &&
+      isPlaying &&
+      !paused &&
+      tutorialPanel.isWaitingForContinue
+    ) {
+      setTutorialContinueButton();
+      return;
+    }
 
     if (paused) {
       playToggleBtn.dataset.playback = "paused";
@@ -636,6 +752,14 @@ export function createApp() {
   }
 
   function onPlayToggleClick() {
+    if (
+      appState === STATE.RUNNING &&
+      isTutorialMode() &&
+      tutorialPanel.isWaitingForContinue
+    ) {
+      tutorialPanel.continueStep();
+      return;
+    }
     if (appState === STATE.RUNNING) {
       pauseSort();
     } else {
@@ -682,6 +806,10 @@ export function createApp() {
     const tutorialMode = isTutorialMode();
     const algoId = algorithmSelect.value;
 
+    if (fromIndex === 0) {
+      sortComplete = false;
+    }
+
     appState = STATE.RUNNING;
     setControlsPlayback(true);
     statusEl.textContent = tutorialMode
@@ -690,10 +818,12 @@ export function createApp() {
 
     lastRenderedIndex = fromIndex;
 
-    if (tutorialMode) {
+    if (isTutorialMode()) {
       tutorialContext = createTutorialContext();
       setContextCols(tutorialContext, grid.cols);
       warmTutorialContextThrough(fromIndex);
+    } else {
+      tutorialContext = null;
     }
 
     const result = await sortPlayer.playRecording(recording, fromIndex, {
@@ -705,44 +835,40 @@ export function createApp() {
           showFrame(from, to);
         }
       },
-      onTutorialBeforeStep: tutorialMode
-        ? async ({ step, index, signal }) => {
-            if (!isTutorialMode() || !tutorialContext || !recording) return;
-            const before = getTutorialBeforeStepMessage(
-              algoId,
-              step,
-              tutorialContext,
-              grid.cells
-            );
-            if (!before) return;
-            await presentTutorialMessage(before, index, signal);
-          }
-        : undefined,
-      onTutorialStep: tutorialMode
-        ? async ({ step, index, signal }) => {
-            if (!isTutorialMode() || !tutorialContext || !recording) return;
-            const message =
-              step?.type === STEP.DONE
-                ? getTutorialOutro(algoId)
-                : getTutorialStepMessage(
-                    algoId,
-                    step,
-                    tutorialContext,
-                    grid.cells
-                  );
+      onTutorialBeforeStep: async ({ step, index, signal }) => {
+        if (!tutorialContext || !recording) return;
+        const before = getTutorialBeforeStepMessage(
+          algoId,
+          step,
+          tutorialContext,
+          grid.cells
+        );
+        if (!before) return;
+        await presentTutorialMessage(before, index, signal);
+      },
+      onTutorialStep: async ({ step, index, signal }) => {
+        if (!tutorialContext || !recording) return;
+        const message =
+          step?.type === STEP.DONE
+            ? getTutorialOutro(algoId)
+            : getTutorialStepMessage(
+                algoId,
+                step,
+                tutorialContext,
+                grid.cells
+              );
 
-            if (!message) {
-              tutorialPanel.hide();
-              if (!reducedMotion) {
-                await playbackDelay(CONFIG.tutorialStepMs, signal);
-              }
-              animator.requestFrame();
-              return;
-            }
-
-            await presentTutorialMessage(message, index, signal);
+        if (!message) {
+          tutorialPanel.hide();
+          if (!reducedMotion) {
+            await playbackDelay(CONFIG.tutorialStepMs, signal);
           }
-        : undefined,
+          animator.requestFrame();
+          return;
+        }
+
+        await presentTutorialMessage(message, index, signal);
+      },
     });
 
     if (session !== playbackSession) {
@@ -771,7 +897,7 @@ export function createApp() {
       if (pendingPlaybackRestart !== null && session === playbackSession) {
         const resumeIndex = pendingPlaybackRestart;
         pendingPlaybackRestart = null;
-        requestPlaybackResync(resumeIndex);
+        void requestPlaybackResync(resumeIndex);
         return;
       }
 
@@ -804,9 +930,15 @@ export function createApp() {
     if (!ensureRecording()) return;
 
     if (sortComplete) {
+      sortComplete = false;
       playbackIndex = 0;
       restoreBenchmark();
       seek(0);
+      grid?.clearHighlights();
+      if (heapTreeView && shouldShowHeapTree()) {
+        heapTreeView.resize();
+      }
+      animator.requestFrame();
     }
 
     await runPlayback(playbackIndex);
@@ -916,7 +1048,7 @@ export function createApp() {
 
   playToggleBtn.addEventListener("click", onPlayToggleClick);
 
-  speedSelect.addEventListener("change", () => {
+  speedSelect.addEventListener("change", async () => {
     const wasRunning = appState === STATE.RUNNING;
     const wasPaused = appState === STATE.PAUSED;
     const wasBusy = wasRunning || wasPaused;
@@ -927,7 +1059,7 @@ export function createApp() {
     syncTutorialChrome({ deferGridRestore: leavingTutorialDuringPlayback });
 
     if (wasBusy) {
-      requestPlaybackResync(resumeIndex);
+      await requestPlaybackResync(resumeIndex);
       return;
     }
 

@@ -81,10 +81,12 @@ export class SortPlayer {
 
       while (index < recording.steps.length) {
         const step = recording.steps[index];
+        const settings = getPlaybackSettings();
+        const inTutorial = Boolean(settings.tutorial ?? tutorialMode);
 
         if (step.type === STEP.DONE) {
           onFrame(recording.steps.length, recording.steps.length);
-          if (tutorialMode && onTutorialStep) {
+          if (inTutorial && onTutorialStep) {
             try {
               await onTutorialStep({ step, index, signal });
             } catch (err) {
@@ -99,7 +101,7 @@ export class SortPlayer {
 
         const nextIndex = index + 1;
 
-        if (tutorialMode) {
+        if (inTutorial) {
           if (onTutorialBeforeStep) {
             try {
               await onTutorialBeforeStep({ step, index, signal });
@@ -125,7 +127,6 @@ export class SortPlayer {
           continue;
         }
 
-        const settings = getPlaybackSettings();
         const stride = settings.stride;
         const toIndex = Math.min(index + stride, recording.steps.length);
         const fromIndex = index;

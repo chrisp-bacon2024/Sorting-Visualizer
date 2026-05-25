@@ -14,7 +14,7 @@ const RESTORING =
 export function getOutro() {
   return {
     title: "Done",
-    body: "All cells are sorted by hue.",
+    body: "Array is fully sorted.",
   };
 }
 
@@ -27,6 +27,21 @@ function initHeapState(ctx, cells) {
   if (state.heapEnd < 0) {
     state.heapEnd = cells.length - 1;
   }
+}
+
+/**
+ * Active heap size for tree view (indices 0 … size − 1).
+ *
+ * @param {TutorialContext} ctx
+ * @param {number} cellCount
+ * @returns {number}
+ */
+export function getHeapSize(ctx, cellCount) {
+  const state = /** @type {{ heapEnd: number, buildDone: boolean }} */ (ctx.heap);
+  if (state.heapEnd < 0) {
+    state.heapEnd = cellCount - 1;
+  }
+  return state.heapEnd + 1;
 }
 
 /**

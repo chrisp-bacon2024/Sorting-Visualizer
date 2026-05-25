@@ -54,6 +54,11 @@ export class TutorialPanel {
     this._clearWait();
   }
 
+  /** @returns {boolean} */
+  get isWaitingForContinue() {
+    return this._resolveContinue !== null;
+  }
+
   /** Advance to the next step (Space or programmatic continue). */
   continueStep() {
     this._finishWait();
