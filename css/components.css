@@ -20,6 +20,15 @@
   gap: var(--space-4);
 }
 
+.controls__description {
+  margin: 0;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
 .controls__playback {
   width: 100%;
   padding-top: var(--space-4);

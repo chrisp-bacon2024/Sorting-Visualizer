@@ -51,8 +51,8 @@ function showStepHighlight(grid, step) {
   grid.clearHighlights();
   if (!step) return;
   if (step.type === STEP.COMPARE || step.type === STEP.SWAP) {
-    grid.highlightCell(step.i, "primary");
-    grid.highlightCell(step.j, "secondary");
+    grid.highlightCell(step.i, "active");
+    grid.highlightCell(step.j, "active");
   }
 }
 

@@ -4,6 +4,14 @@
 
 const GAP = 1;
 
+/** Active compare/swap highlight (both cells use the same style). */
+const ACTIVE_HIGHLIGHT = {
+  stroke: "#facc15",
+  width: 5,
+  glow: "rgba(250, 204, 21, 0.65)",
+  glowWidth: 10,
+};
+
 const randomHueColor = () => {
   const hue = Math.floor(Math.random() * 360);
   return { hue, color: `hsl(${hue}, 90%, 55%)` };
@@ -135,8 +143,8 @@ export class Grid {
    * @param {number} j
    */
   compareCells(i, j) {
-    this.highlightCell(i, "primary");
-    this.highlightCell(j, "secondary");
+    this.highlightCell(i, "active");
+    this.highlightCell(j, "active");
   }
 
   clearHighlights() {
@@ -145,7 +153,7 @@ export class Grid {
 
   /**
    * @param {number} index
-   * @param {"primary" | "secondary" | "default"} [role]
+   * @param {"active" | "default"} [role]
    */
   highlightCell(index, role = "default") {
     this.cells[index]?.highlight(role);
@@ -188,6 +196,7 @@ export class Cell {
     this.outlineColor = this.defaultOutlineColor;
     this.outlineWidth = 1;
     this._highlighted = false;
+    this._highlightActive = false;
   }
 
   /**
@@ -221,16 +230,14 @@ export class Cell {
   }
 
   /**
-   * @param {"primary" | "secondary" | "default"} [role]
+   * @param {"active" | "default"} [role]
    */
   highlight(role = "default") {
     this._highlighted = true;
-    if (role === "primary") {
-      this.outlineColor = "#38bdf8";
-      this.outlineWidth = 3;
-    } else if (role === "secondary") {
-      this.outlineColor = "#f472b6";
-      this.outlineWidth = 3;
+    this._highlightActive = role === "active";
+    if (this._highlightActive) {
+      this.outlineColor = ACTIVE_HIGHLIGHT.stroke;
+      this.outlineWidth = ACTIVE_HIGHLIGHT.width;
     } else {
       this.outlineColor = "#f5c542";
       this.outlineWidth = 2;
@@ -239,6 +246,7 @@ export class Cell {
 
   unhighlight() {
     this._highlighted = false;
+    this._highlightActive = false;
     this.outlineColor = this.defaultOutlineColor;
     this.outlineWidth = 1;
   }
@@ -252,16 +260,31 @@ export class Cell {
    * @param {CanvasRenderingContext2D} ctx
    */
   draw(ctx) {
+    const inset = (gutter) => gutter / 2;
+
+    if (this._highlightActive) {
+      const g = ACTIVE_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = ACTIVE_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    }
+
     ctx.fillStyle = this.color;
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
     ctx.strokeStyle = this.outlineColor;
     ctx.lineWidth = this.outlineWidth;
+    const w = this.outlineWidth;
     ctx.strokeRect(
-      this.x + this.outlineWidth / 2,
-      this.y + this.outlineWidth / 2,
-      this.width - this.outlineWidth,
-      this.height - this.outlineWidth
+      this.x + inset(w),
+      this.y + inset(w),
+      this.width - w,
+      this.height - w
     );
   }
 }

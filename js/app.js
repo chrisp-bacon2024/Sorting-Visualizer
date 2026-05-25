@@ -75,6 +75,9 @@ export function createApp() {
   const algorithmMeasureEl = /** @type {HTMLElement} */ (
     document.querySelector("#algorithm-measure")
   );
+  const algorithmDescriptionEl = /** @type {HTMLElement} */ (
+    document.querySelector("#algorithm-description")
+  );
   const statusEl = /** @type {HTMLElement} */ (document.querySelector("#status"));
 
   /** @type {Grid | null} */
@@ -195,7 +198,7 @@ export function createApp() {
     appState = STATE.RUNNING;
     setControlsPlayback(true);
     statusEl.textContent = isTutorialMode()
-      ? "Tutorial — Space at tips; steps play slowly between"
+      ? "Tutorial — Space at key steps; neighbors play automatically"
       : "Sorting…";
     void runPlayback(resumeIndex);
   }
@@ -346,6 +349,11 @@ export function createApp() {
     algorithmTrigger.textContent = algo?.label ?? "";
   }
 
+  function updateAlgorithmDescription() {
+    const algo = getAlgorithm(algorithmSelect.value);
+    algorithmDescriptionEl.textContent = algo?.description ?? "";
+  }
+
   function setAlgorithmMenuOpen(open) {
     algorithmList.hidden = !open;
     algorithmTrigger.setAttribute("aria-expanded", String(open));
@@ -381,12 +389,14 @@ export function createApp() {
 
     algorithmSelect.value = selected;
     updateAlgorithmTriggerLabel();
+    updateAlgorithmDescription();
     updateAlgorithmSelectWidth();
   }
 
   function applyAlgorithmSelection(algoId) {
     algorithmSelect.value = algoId;
     updateAlgorithmTriggerLabel();
+    updateAlgorithmDescription();
     updateAlgorithmSelectWidth();
     setAlgorithmMenuOpen(false);
 
@@ -632,7 +642,7 @@ export function createApp() {
     appState = STATE.RUNNING;
     setControlsPlayback(true);
     statusEl.textContent = tutorialMode
-      ? "Tutorial — Space at tips; steps play slowly between"
+      ? "Tutorial — Space at key steps; neighbors play automatically"
       : "Sorting…";
 
     lastRenderedIndex = fromIndex;
@@ -665,6 +675,9 @@ export function createApp() {
                     grid.cells
                   );
 
+            const display = toDisplayPlaybackIndex(recording, index);
+            const total = animatedStepCount(recording);
+
             if (!message) {
               tutorialPanel.hide();
               if (!reducedMotion) {
@@ -674,12 +687,19 @@ export function createApp() {
               return;
             }
 
-            const display = toDisplayPlaybackIndex(recording, index);
-            const total = animatedStepCount(recording);
             tutorialPanel.show({
               ...message,
               stepLabel: `${display} / ${total}`,
             });
+
+            if (message.pause === false) {
+              if (!reducedMotion) {
+                await playbackDelay(CONFIG.tutorialStepMs, signal);
+              }
+              animator.requestFrame();
+              return;
+            }
+
             await tutorialPanel.waitForContinue();
           }
         : undefined,

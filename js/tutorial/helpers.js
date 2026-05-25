@@ -1,12 +1,11 @@
-/** @typedef {{ title: string, body: string }} TutorialMessage */
+/**
+ * @typedef {object} TutorialMessage
+ * @property {string} title
+ * @property {string} body
+ * @property {boolean} [pause] If false, show while the step plays and auto-advance (no Space).
+ */
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { STEP } from "../algorithms/types.js";
-
-/** @type {Readonly<Record<string, { color: string, width: number }>>} */
-export const TUTORIAL_HIGHLIGHT = {
-  primary: { color: "#38bdf8", width: 3 },
-  secondary: { color: "#f472b6", width: 3 },
-};
 
 /**
  * @param {number} hue

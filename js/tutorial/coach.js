@@ -39,7 +39,8 @@ export function getTutorialOutro(algoId) {
  * @param {SortStep} step
  * @param {TutorialContext} ctx
  * @param {import('../model/grid.js').Cell[]} cells
- * @returns {TutorialMessage | null} null = skip commentary and auto-advance
+ * @returns {TutorialMessage | null}
+ * null = no panel text; `pause: false` = live commentary while the step plays.
  */
 export function getTutorialStepMessage(algoId, step, ctx, cells) {
   const mod = MODULES[algoId];
