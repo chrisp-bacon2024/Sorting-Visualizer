@@ -3,13 +3,13 @@
 /** @typedef {import('../algorithms/types.js').SortStep} SortStep */
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { STEP } from "../algorithms/types.js";
-import { compareMessage, swapMessage, cellPhrase } from "./helpers.js";
+import { cellPhrase } from "./helpers.js";
 
 /** @returns {TutorialMessage} */
 export function getOutro() {
   return {
     title: "Done",
-    body: "Quick sort finished—partitions placed each pivot in its final spot until the whole grid is sorted.",
+    body: "All cells are sorted by hue.",
   };
 }
 
@@ -20,32 +20,47 @@ export function getOutro() {
  * @returns {TutorialMessage | null}
  */
 export function onStep(step, ctx, cells) {
-  const state = /** @type {{ pivot: number, partitionStarted: boolean }} */ (
+  const state = /** @type {{ pivotIndex: number, partitionStarted: boolean }} */ (
     ctx.quick
   );
 
   if (step.type === STEP.COMPARE) {
-    if (step.j !== state.pivot) {
-      state.pivot = step.j;
+    if (step.j !== state.pivotIndex) {
+      state.pivotIndex = step.j;
       state.partitionStarted = false;
     }
+
     if (!state.partitionStarted) {
       state.partitionStarted = true;
-      const pivotPhrase = cellPhrase(cells[state.pivot]);
       return {
         title: "Partition",
-        body: `${compareMessage(cells, step.i, step.j).body} A cell was compared to the pivot ${pivotPhrase} to decide which side it belonged on.`,
+        body: `Pivot is ${cellPhrase(cells[step.j])}—cells are compared to it and smaller hues shift left.`,
+        pause: true,
+        focusIndex: step.j,
       };
     }
-    return null;
+
+    return {
+      title: "Compared",
+      body: `Compared ${cellPhrase(cells[step.i])} to the pivot.`,
+      pause: false,
+    };
   }
 
   if (step.type === STEP.SWAP) {
+    if (step.i !== state.pivotIndex && step.j !== state.pivotIndex) {
+      return null;
+    }
+
     state.partitionStarted = false;
-    if (step.i !== state.pivot && step.j !== state.pivot) return null;
+    const placedIndex =
+      step.i === state.pivotIndex ? step.j : step.i;
+
     return {
-      title: "Pivot in place",
-      body: `${swapMessage(cells, step.i, step.j).body} The pivot ended up where everything to its left is smaller and everything to its right is larger.`,
+      title: "Placed",
+      body: `${cellPhrase(cells[placedIndex])} is in its final position.`,
+      pause: true,
+      focusIndex: placedIndex,
     };
   }
 

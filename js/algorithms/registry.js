@@ -46,7 +46,7 @@ export const ALGORITHMS = [
     id: "quick",
     label: "Quick Sort",
     description:
-      "Picks a pivot, partitions smaller hues left and larger right, then sorts each side.",
+      "Partitions each section around a pivot, then sorts the left and right parts.",
     sort: quickSort,
   },
   {
