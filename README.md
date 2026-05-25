@@ -2,7 +2,18 @@
 
 Interactive sorting visualizer: a grid of random colors sorted by **hue**, with step-by-step playback and fair algorithm comparison on the same input.
 
-**Live demo:** _add your GitHub Pages URL after deploying_
+**Live demo:** https://chrisp-bacon2024.github.io/Sorting-Visualizer/
+
+## Deploy (GitHub Pages)
+
+If the **Deploy to GitHub Pages** workflow fails with `Get Pages site failed` / `Not Found`:
+
+1. Open **Settings → Pages** on the repo:  
+   https://github.com/chrisp-bacon2024/Sorting-Visualizer/settings/pages
+2. Under **Build and deployment**, set **Source** to **GitHub Actions** (not “Deploy from a branch”).
+3. Go to **Actions**, open the failed run, and click **Re-run all jobs**.
+
+The site should publish at the live demo URL above after the workflow succeeds.
 
 ## Features
 

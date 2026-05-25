@@ -6,6 +6,10 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
 .controls__row {
@@ -54,6 +58,8 @@
 .algo-picker {
   position: relative;
   box-sizing: border-box;
+  width: auto;
+  max-width: 22rem;
 }
 
 .algo-picker__anchor {
@@ -69,9 +75,14 @@
   display: block;
   box-sizing: border-box;
   width: 100%;
+  max-width: 100%;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
   font: inherit;
+  font-weight: 600;
   color: var(--color-text);
   background: var(--color-bg);
 }
@@ -116,14 +127,16 @@
 }
 
 .algorithm-measure {
-  position: absolute;
+  position: fixed;
+  left: -10000px;
+  top: 0;
   visibility: hidden;
   pointer-events: none;
   white-space: nowrap;
-  height: auto;
   width: max-content;
-  top: 0;
-  left: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  font-family: inherit;
 }
 
 .control--compact {

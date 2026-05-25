@@ -67,9 +67,6 @@ export function createApp() {
   );
   const statusEl = /** @type {HTMLElement} */ (document.querySelector("#status"));
 
-  /** Padding + border for the closed algorithm trigger beyond measured text. */
-  const ALGORITHM_SELECT_EXTRA_PX = 28;
-
   /** @type {Grid | null} */
   let grid = null;
   /** @type {string} */
@@ -142,17 +139,39 @@ export function createApp() {
     }
   }
 
-  function measureAlgorithmSelectText(text) {
-    algorithmMeasureEl.textContent = text;
-    return algorithmMeasureEl.offsetWidth + ALGORITHM_SELECT_EXTRA_PX;
+  function measureAlgorithmLabelWidth(text) {
+    const style = getComputedStyle(algorithmTrigger);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    let textWidth = 0;
+    if (ctx) {
+      ctx.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      textWidth = Math.ceil(ctx.measureText(text).width);
+    } else {
+      algorithmMeasureEl.textContent = text;
+      textWidth = algorithmMeasureEl.offsetWidth;
+    }
+    const padX =
+      parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const borderX =
+      parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+    return textWidth + padX + borderX + 4;
+  }
+
+  function getAlgorithmPickerWidth() {
+    let max = 0;
+    for (const algo of ALGORITHMS) {
+      max = Math.max(max, measureAlgorithmLabelWidth(algo.label));
+    }
+    return max;
   }
 
   function updateAlgorithmSelectWidth() {
-    const algo = getAlgorithm(algorithmSelect.value);
     const picker = algorithmTrigger.closest(".algo-picker");
-    const width = `${measureAlgorithmSelectText(algo?.label ?? "")}px`;
+    const px = getAlgorithmPickerWidth();
     if (picker instanceof HTMLElement) {
-      picker.style.width = width;
+      picker.style.width = `${px}px`;
+      picker.style.minWidth = `${px}px`;
     }
   }
 
