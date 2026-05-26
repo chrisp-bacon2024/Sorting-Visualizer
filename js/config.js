@@ -1,14 +1,18 @@
-/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, tutorialCols: number, tutorialStepMs: number, defaultSpeedPreset: number, mediumSpeedPreset: number, maxFastPlaybackMs: number }>} */
+/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, tutorialCols: number, largeGridColsThreshold: number, tutorialStepMs: number, defaultSpeedPreset: number, mediumSpeedPreset: number, veryFastSpeedPreset: number, maxFastPlaybackMs: number }>} */
 export const CONFIG = {
   cols: 20,
   minCols: 5,
-  maxCols: 40,
+  maxCols: 100,
   tutorialCols: 5,
+  /** Above this size: hide Values, drop bubble/insertion/selection, default to Very fast. */
+  largeGridColsThreshold: 40,
   /** Delay between non-key tutorial steps (compares/swaps without a tip). */
   tutorialStepMs: 220,
   defaultSpeedPreset: 0,
   /** Speed preset index when leaving Tutorial via a larger grid size. */
   mediumSpeedPreset: 3,
+  /** Speed preset index for grids larger than largeGridColsThreshold. */
+  veryFastSpeedPreset: 5,
   maxFastPlaybackMs: 9500,
 };
 

@@ -1,3 +1,4 @@
+import { CONFIG } from "../config.js";
 import { bubbleSort } from "./bubble.js";
 import { insertionSort } from "./insertion.js";
 import { selectionSort } from "./selection.js";
@@ -64,6 +65,20 @@ export const ALGORITHMS = [
     sort: timSort,
   },
 ];
+
+/** @type {ReadonlySet<string>} */
+const HIDDEN_ON_LARGE_GRID = new Set(["bubble", "insertion", "selection"]);
+
+/**
+ * @param {number} cols Grid width/height in cells
+ * @returns {AlgorithmEntry[]}
+ */
+export function getAlgorithmsForGridSize(cols) {
+  if (cols <= CONFIG.largeGridColsThreshold) {
+    return ALGORITHMS;
+  }
+  return ALGORITHMS.filter((entry) => !HIDDEN_ON_LARGE_GRID.has(entry.id));
+}
 
 /**
  * @param {string} id

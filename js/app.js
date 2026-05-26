@@ -4,7 +4,11 @@ import {
   getPlaybackSettings as computePlaybackSettings,
 } from "./config.js";
 import { Grid } from "./model/grid.js";
-import { ALGORITHMS, getAlgorithm } from "./algorithms/registry.js";
+import {
+  ALGORITHMS,
+  getAlgorithm,
+  getAlgorithmsForGridSize,
+} from "./algorithms/registry.js";
 import { CanvasView } from "./visualize/canvasView.js";
 import { HeapTreeView } from "./visualize/heapTreeView.js";
 import { QuickStripView } from "./visualize/quickStripView.js";
@@ -120,6 +124,9 @@ export function createApp() {
   );
   const showHueInput = /** @type {HTMLInputElement} */ (
     document.querySelector("#show-hue")
+  );
+  const showHueLabel = /** @type {HTMLElement | null} */ (
+    showHueInput.closest(".control--hue")
   );
   const statusEl = /** @type {HTMLElement} */ (document.querySelector("#status"));
 
@@ -631,12 +638,62 @@ export function createApp() {
     return textWidth + padX + borderX + 4;
   }
 
+  function getGridCols() {
+    const cols = grid?.cols ?? Number(colsInput.value);
+    return cols > 0 ? cols : CONFIG.cols;
+  }
+
+  function isLargeGrid(/** @type {number} */ cols) {
+    return cols > CONFIG.largeGridColsThreshold;
+  }
+
   function getAlgorithmPickerWidth() {
+    const algorithms = getAlgorithmsForGridSize(getGridCols());
     let max = 0;
-    for (const algo of ALGORITHMS) {
+    for (const algo of algorithms) {
       max = Math.max(max, measureAlgorithmLabelWidth(algo.label));
     }
     return max;
+  }
+
+  /**
+   * @param {number} cols
+   */
+  function ensureAlgorithmForGridSize(cols) {
+    const allowed = getAlgorithmsForGridSize(cols);
+    const current = algorithmSelect.value;
+    if (allowed.some((a) => a.id === current)) {
+      return;
+    }
+    const fallback = allowed[0]?.id;
+    if (!fallback) {
+      return;
+    }
+    if (appState === STATE.RUNNING || appState === STATE.PAUSED) {
+      void switchAlgorithmDuringPlayback(fallback);
+      return;
+    }
+    applyAlgorithmSelection(fallback);
+    invalidateRecording();
+  }
+
+  /**
+   * @param {number} cols
+   */
+  function syncLargeGridChrome(cols) {
+    const large = isLargeGrid(cols);
+    if (showHueLabel) {
+      showHueLabel.hidden = large;
+    }
+    if (large) {
+      showHueInput.checked = false;
+      if (!isTutorialMode()) {
+        speedSelect.value = String(CONFIG.veryFastSpeedPreset);
+      }
+    }
+    ensureAlgorithmForGridSize(cols);
+    refreshAlgorithmOptions();
+    syncShowHueValues();
   }
 
   function updateAlgorithmSelectWidth() {
@@ -664,11 +721,16 @@ export function createApp() {
   }
 
   function refreshAlgorithmOptions() {
-    const selected = algorithmSelect.value || ALGORITHMS[0]?.id;
+    const cols = getGridCols();
+    const algorithms = getAlgorithmsForGridSize(cols);
+    let selected = algorithmSelect.value || algorithms[0]?.id;
+    if (!algorithms.some((a) => a.id === selected)) {
+      selected = algorithms[0]?.id ?? selected;
+    }
     algorithmSelect.innerHTML = "";
     algorithmList.innerHTML = "";
 
-    for (const algo of ALGORITHMS) {
+    for (const algo of algorithms) {
       const label = formatAlgoOptionLabel(
         algo.label,
         algoResults.get(algo.id)
@@ -857,7 +919,7 @@ export function createApp() {
     }
 
     grid?.setCols(cols);
-    syncShowHueValues();
+    syncLargeGridChrome(cols);
     resetBenchmarkInput();
     animator.requestFrame();
     statusEl.textContent = `${cols}×${cols} grid`;
@@ -1330,11 +1392,13 @@ export function createApp() {
     }
   });
 
+  colsInput.max = String(CONFIG.maxCols);
   refreshAlgorithmOptions();
   populateSpeedPresets();
   syncShowHueValues();
   syncTutorialChrome();
   syncColsLabel();
+  syncLargeGridChrome(getGridCols());
   updatePlaybackSlider();
   const initialCols = grid?.cols ?? (Number(colsInput.value) || CONFIG.cols);
   statusEl.textContent = isTutorialMode()
