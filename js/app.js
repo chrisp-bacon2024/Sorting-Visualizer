@@ -8,6 +8,7 @@ import { ALGORITHMS, getAlgorithm } from "./algorithms/registry.js";
 import { CanvasView } from "./visualize/canvasView.js";
 import { HeapTreeView } from "./visualize/heapTreeView.js";
 import { QuickStripView } from "./visualize/quickStripView.js";
+import { MergePanelView } from "./visualize/mergePanelView.js";
 import { Animator } from "./visualize/animator.js";
 import { SortPlayer, playbackDelay } from "./visualize/sortPlayer.js";
 import {
@@ -35,6 +36,7 @@ import {
 } from "./tutorial/coach.js";
 import { getHeapSize } from "./tutorial/heap.js";
 import { getQuickStripState, trackQuickStep } from "./tutorial/quick.js";
+import { getMergePanelState, trackMergeStep } from "./tutorial/merge.js";
 import { TutorialPanel } from "./tutorial/tutorialPanel.js";
 import { STEP } from "./algorithms/types.js";
 
@@ -64,6 +66,12 @@ export function createApp() {
   );
   const quickStripCanvas = /** @type {HTMLCanvasElement} */ (
     document.querySelector("#quick-strip-canvas")
+  );
+  const mergePanelEl = /** @type {HTMLElement} */ (
+    document.querySelector("#merge-panel")
+  );
+  const mergePanelCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#merge-panel-canvas")
   );
   const colsInput = /** @type {HTMLInputElement} */ (
     document.querySelector("#grid-cols")
@@ -157,6 +165,10 @@ export function createApp() {
     return isTutorialMode() && algorithmSelect.value === "quick";
   }
 
+  function shouldShowMergePanel() {
+    return isTutorialMode() && algorithmSelect.value === "merge";
+  }
+
   /** Range anchor, pivot, scan, and placed highlights on the main grid. */
   function syncQuickTutorialGridHighlights() {
     if (!grid || !shouldShowQuickStrip() || !tutorialContext || sortComplete) {
@@ -190,6 +202,7 @@ export function createApp() {
   function syncTutorialSidePanels() {
     const showHeap = shouldShowHeapTree();
     const showQuick = shouldShowQuickStrip();
+    const showMerge = shouldShowMergePanel();
 
     if (heapTreePanel) {
       heapTreePanel.hidden = !showHeap;
@@ -205,7 +218,14 @@ export function createApp() {
       }
     }
 
-    if (showHeap || showQuick) {
+    if (mergePanelEl) {
+      mergePanelEl.hidden = !showMerge;
+      if (showMerge && mergePanelView) {
+        mergePanelView.resize();
+      }
+    }
+
+    if (showHeap || showQuick || showMerge) {
       animator.requestFrame();
     }
   }
@@ -252,6 +272,9 @@ export function createApp() {
     }
     if (quickStripView && shouldShowQuickStrip()) {
       quickStripView.resize();
+    }
+    if (mergePanelView && shouldShowMergePanel()) {
+      mergePanelView.resize();
     }
     animator.requestFrame();
   }
@@ -335,6 +358,7 @@ export function createApp() {
     const display = toDisplayPlaybackIndex(recording, internalIndex);
 
     if (internalIndex >= recording.steps.length) {
+      sortComplete = true;
       grid?.clearHighlights();
       animator.requestFrame();
       tutorialPanel.show({
@@ -373,6 +397,7 @@ export function createApp() {
 
   function interruptTutorialPlayback() {
     if (!isTutorialMode() || appState !== STATE.RUNNING) return;
+    isScrubbing = false;
     tutorialPanel.cancelWait();
     sortPlayer.pause();
   }
@@ -484,6 +509,9 @@ export function createApp() {
   const quickStripView = quickStripCanvas
     ? new QuickStripView(quickStripCanvas)
     : null;
+  const mergePanelView = mergePanelCanvas
+    ? new MergePanelView(mergePanelCanvas)
+    : null;
 
   function syncShowHueValues() {
     if (grid) {
@@ -494,6 +522,9 @@ export function createApp() {
     }
     if (quickStripView) {
       quickStripView.showHueValues = showHueInput.checked;
+    }
+    if (mergePanelView) {
+      mergePanelView.showHueValues = showHueInput.checked;
     }
   }
 
@@ -507,6 +538,12 @@ export function createApp() {
       quickStripView.render(
         grid.cells,
         getQuickStripState(tutorialContext, grid.cellCount, sortComplete)
+      );
+    }
+    if (mergePanelView && shouldShowMergePanel()) {
+      mergePanelView.render(
+        grid.cells,
+        getMergePanelState(tutorialContext, grid.cells, sortComplete)
       );
     }
   }
@@ -861,11 +898,27 @@ export function createApp() {
     }
   }
 
+  function mergeRecordingNeedsRefresh(/** @type {import('./sort/sortSession.js').SortRecording} */ rec) {
+    return rec.steps.some(
+      (s) =>
+        (s.type === STEP.COMPARE || s.type === STEP.SWAP) &&
+        !("merge" in s && s.merge)
+    );
+  }
+
   function ensureRecording() {
     if (!grid || !benchmarkSnapshot) return null;
 
     const algoId = algorithmSelect.value;
-    const cached = algoResults.get(algoId);
+    let cached = algoResults.get(algoId);
+    if (
+      cached &&
+      algoId === "merge" &&
+      mergeRecordingNeedsRefresh(cached.recording)
+    ) {
+      algoResults.delete(algoId);
+      cached = undefined;
+    }
     if (cached) {
       recording = cached.recording;
       refreshAlgorithmOptions();
@@ -899,6 +952,7 @@ export function createApp() {
     const session = ++playbackSession;
     const tutorialMode = isTutorialMode();
     const algoId = algorithmSelect.value;
+    isScrubbing = false;
 
     if (fromIndex === 0) {
       sortComplete = false;
@@ -925,7 +979,7 @@ export function createApp() {
       reducedMotion,
       tutorialMode,
       onFrame: (from, to) => {
-        if (!isScrubbing) {
+        if (!isScrubbing || tutorialMode) {
           showFrame(from, to);
         }
       },
@@ -944,6 +998,9 @@ export function createApp() {
         if (!tutorialContext || !recording) return;
         if (algoId === "quick") {
           trackQuickStep(step, tutorialContext);
+        }
+        if (algoId === "merge" && step.type === STEP.DONE) {
+          trackMergeStep(step, tutorialContext, grid.cells);
         }
         const message =
           step?.type === STEP.DONE
@@ -1037,6 +1094,9 @@ export function createApp() {
       }
       if (quickStripView && shouldShowQuickStrip()) {
         quickStripView.resize();
+      }
+      if (mergePanelView && shouldShowMergePanel()) {
+        mergePanelView.resize();
       }
       animator.requestFrame();
     }
@@ -1135,6 +1195,10 @@ export function createApp() {
   }
 
   playbackInput.addEventListener("pointerup", () => {
+    isScrubbing = false;
+  });
+
+  playbackInput.addEventListener("pointercancel", () => {
     isScrubbing = false;
   });
 

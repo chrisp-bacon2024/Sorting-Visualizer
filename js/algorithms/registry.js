@@ -53,7 +53,7 @@ export const ALGORITHMS = [
     id: "merge",
     label: "Merge Sort",
     description:
-      "Divides the grid in half, sorts each side, then merges sorted runs by hue.",
+      "Splits the grid in half, sorts each side, then merges the sorted runs.",
     sort: mergeSort,
   },
   {

@@ -25,7 +25,16 @@ export function createTutorialContext() {
       active: false,
       lastPlacedIndex: -1,
     },
-    merge: { mergeKey: "" },
+    merge: {
+      passKey: "",
+      shownBlock: -1,
+      auxIds: [],
+      merge: null,
+      compareI: -1,
+      compareJ: -1,
+      block: 0,
+      finished: false,
+    },
     timsort: { inMerge: false, runKey: "" },
   };
 }
