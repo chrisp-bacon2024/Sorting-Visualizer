@@ -6,6 +6,22 @@ An interactive, browser-based sorting visualizer that sorts a grid of random col
 
 ---
 
+## Demos
+
+### Tutorial mode — Heap Sort
+
+5×5 grid, **Tutorial** speed, **Heap Sort** — step-by-step tips and the live heap tree panel.
+
+<img src="docs/assets/heap-sort-tutorial.gif" width="800" alt="Heap Sort in Tutorial mode with heap tree panel and step tips" />
+
+### Large grid — Quick Sort
+
+**100×100** grid, **Very fast** speed, **Quick Sort** — full-grid partition visualization at scale.
+
+<img src="docs/assets/quick-sort-100x100.gif" width="800" alt="Quick Sort on a 100×100 color grid" />
+
+---
+
 ## At a glance
 
 | | |
@@ -15,24 +31,6 @@ An interactive, browser-based sorting visualizer that sorts a grid of random col
 | **Algorithms** | Bubble, Insertion, Selection, Heap, Quick, Merge, Tim Sort |
 | **Grid** | 5×5 up to **100×100** (10,000 cells) |
 | **Playback** | Pre-recorded steps, scrubber, speed presets, benchmark stats on the same shuffle |
-
----
-
-## Demos
-
-Add recordings under `docs/assets/` (see [Adding demo GIFs](#adding-demo-gifs) below).
-
-### Tutorial mode — Heap Sort
-
-5×5 grid, **Tutorial** speed, **Heap Sort** — step-by-step tips plus the live heap tree panel.
-
-![Heap Sort in Tutorial mode](docs/assets/heap-sort-tutorial.gif)
-
-### Large grid — Quick Sort
-
-**100×100** grid, **Very fast** speed, **Quick Sort** — full-grid partition visualization at scale.
-
-![Quick Sort on a 100×100 grid](docs/assets/quick-sort-100x100.gif)
 
 ---
 
@@ -104,18 +102,6 @@ npx serve .
 ```
 
 Then open `http://localhost:8080`.
-
----
-
-## Adding demo GIFs
-
-1. Create GIFs (recommended width ~800–1200 px for readability on GitHub).
-2. Save them as:
-   - `docs/assets/heap-sort-tutorial.gif` — Tutorial speed, Heap Sort, 5×5, include heap panel and a tip visible.
-   - `docs/assets/quick-sort-100x100.gif` — 100×100 grid, Quick Sort, Very fast (or mid-playback scrub frame).
-3. Commit and push; the README embeds will update automatically.
-
-Tools that work well: [ScreenToGif](https://www.screentogif.com/) (Windows), OBS + conversion, or browser extensions. Keep file size reasonable (&lt; ~5 MB each) so the repo stays clone-friendly.
 
 ---
 
