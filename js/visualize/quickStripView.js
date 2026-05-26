@@ -131,7 +131,11 @@ export class QuickStripView {
           ctx.font = "500 9px system-ui, sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
-          ctx.fillText("≤ pivot", (loX + zoneEnd) / 2, bracketY - 1);
+          ctx.fillText(
+            "≤ pivot",
+            (loX + zoneEnd) / 2,
+            activeRowY + radius + 8
+          );
           ctx.textAlign = "left";
         }
 
