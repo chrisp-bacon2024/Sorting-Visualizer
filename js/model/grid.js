@@ -4,6 +4,38 @@
 
 const GAP = 1;
 
+/** Active compare/swap highlight (both cells use the same style). */
+const ACTIVE_HIGHLIGHT = {
+  stroke: "#facc15",
+  width: 5,
+  glow: "rgba(250, 204, 21, 0.65)",
+  glowWidth: 10,
+};
+
+/** Quick-sort pivot (matches tutorial strip). */
+const PIVOT_HIGHLIGHT = {
+  stroke: "#a78bfa",
+  width: 5,
+  glow: "rgba(167, 139, 250, 0.5)",
+  glowWidth: 10,
+};
+
+/** Quick-sort range start / anchor (left end of active range). */
+const RANGE_START_HIGHLIGHT = {
+  stroke: "#22d3ee",
+  width: 5,
+  glow: "rgba(34, 211, 238, 0.55)",
+  glowWidth: 10,
+};
+
+/** Quick-sort pivot placed in final position. */
+const PLACED_HIGHLIGHT = {
+  stroke: "#4ade80",
+  width: 5,
+  glow: "rgba(74, 222, 128, 0.55)",
+  glowWidth: 10,
+};
+
 const randomHueColor = () => {
   const hue = Math.floor(Math.random() * 360);
   return { hue, color: `hsl(${hue}, 90%, 55%)` };
@@ -24,6 +56,8 @@ export class Grid {
     this.cellHeight = 0;
     /** @type {Cell[]} */
     this.cells = [];
+    /** @type {boolean} */
+    this.showHueValues = false;
     this.generateCells();
     this.layout();
   }
@@ -135,8 +169,8 @@ export class Grid {
    * @param {number} j
    */
   compareCells(i, j) {
-    this.highlightCell(i);
-    this.highlightCell(j);
+    this.highlightCell(i, "active");
+    this.highlightCell(j, "active");
   }
 
   clearHighlights() {
@@ -145,9 +179,10 @@ export class Grid {
 
   /**
    * @param {number} index
+   * @param {"active" | "pivot" | "rangeStart" | "placed" | "default"} [role]
    */
-  highlightCell(index) {
-    this.cells[index]?.highlight();
+  highlightCell(index, role = "default") {
+    this.cells[index]?.highlight(role);
   }
 
   /**
@@ -162,7 +197,7 @@ export class Grid {
    */
   draw(ctx) {
     for (const cell of this.cells) {
-      cell.draw(ctx);
+      cell.draw(ctx, this.showHueValues);
     }
   }
 }
@@ -187,6 +222,10 @@ export class Cell {
     this.outlineColor = this.defaultOutlineColor;
     this.outlineWidth = 1;
     this._highlighted = false;
+    this._highlightActive = false;
+    this._highlightPivot = false;
+    this._highlightRangeStart = false;
+    this._highlightPlaced = false;
   }
 
   /**
@@ -219,14 +258,39 @@ export class Cell {
     this.height = newHeight;
   }
 
-  highlight() {
+  /**
+   * @param {"active" | "pivot" | "rangeStart" | "placed" | "default"} [role]
+   */
+  highlight(role = "default") {
     this._highlighted = true;
-    this.outlineColor = "#f5c542";
-    this.outlineWidth = 2;
+    this._highlightPlaced = role === "placed";
+    this._highlightPivot = role === "pivot";
+    this._highlightRangeStart = role === "rangeStart";
+    this._highlightActive = role === "active";
+    if (this._highlightPlaced) {
+      this.outlineColor = PLACED_HIGHLIGHT.stroke;
+      this.outlineWidth = PLACED_HIGHLIGHT.width;
+    } else if (this._highlightPivot) {
+      this.outlineColor = PIVOT_HIGHLIGHT.stroke;
+      this.outlineWidth = PIVOT_HIGHLIGHT.width;
+    } else if (this._highlightRangeStart) {
+      this.outlineColor = RANGE_START_HIGHLIGHT.stroke;
+      this.outlineWidth = RANGE_START_HIGHLIGHT.width;
+    } else if (this._highlightActive) {
+      this.outlineColor = ACTIVE_HIGHLIGHT.stroke;
+      this.outlineWidth = ACTIVE_HIGHLIGHT.width;
+    } else {
+      this.outlineColor = "#f5c542";
+      this.outlineWidth = 2;
+    }
   }
 
   unhighlight() {
     this._highlighted = false;
+    this._highlightActive = false;
+    this._highlightPivot = false;
+    this._highlightRangeStart = false;
+    this._highlightPlaced = false;
     this.outlineColor = this.defaultOutlineColor;
     this.outlineWidth = 1;
   }
@@ -238,18 +302,81 @@ export class Cell {
 
   /**
    * @param {CanvasRenderingContext2D} ctx
+   * @param {boolean} [showHue]
    */
-  draw(ctx) {
+  draw(ctx, showHue = false) {
+    const inset = (gutter) => gutter / 2;
+
+    if (this._highlightPlaced) {
+      const g = PLACED_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = PLACED_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    } else if (this._highlightPivot) {
+      const g = PIVOT_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = PIVOT_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    } else if (this._highlightRangeStart) {
+      const g = RANGE_START_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = RANGE_START_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    } else if (this._highlightActive) {
+      const g = ACTIVE_HIGHLIGHT.glowWidth;
+      ctx.strokeStyle = ACTIVE_HIGHLIGHT.glow;
+      ctx.lineWidth = g;
+      ctx.strokeRect(
+        this.x + inset(g),
+        this.y + inset(g),
+        this.width - g,
+        this.height - g
+      );
+    }
+
     ctx.fillStyle = this.color;
     ctx.fillRect(this.x, this.y, this.width, this.height);
 
     ctx.strokeStyle = this.outlineColor;
     ctx.lineWidth = this.outlineWidth;
+    const w = this.outlineWidth;
     ctx.strokeRect(
-      this.x + this.outlineWidth / 2,
-      this.y + this.outlineWidth / 2,
-      this.width - this.outlineWidth,
-      this.height - this.outlineWidth
+      this.x + inset(w),
+      this.y + inset(w),
+      this.width - w,
+      this.height - w
     );
+
+    if (showHue && this.width >= 14 && this.height >= 14) {
+      const label = String(Math.round(this.hue));
+      const cx = this.x + this.width / 2;
+      const cy = this.y + this.height / 2;
+      const size = Math.max(8, Math.floor(Math.min(this.width, this.height) * 0.28));
+      ctx.save();
+      ctx.font = `600 ${size}px system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = Math.max(2, size * 0.2);
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.85)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+      ctx.strokeText(label, cx, cy);
+      ctx.fillText(label, cx, cy);
+      ctx.restore();
+    }
   }
 }

@@ -4,18 +4,49 @@ import {
   getPlaybackSettings as computePlaybackSettings,
 } from "./config.js";
 import { Grid } from "./model/grid.js";
-import { ALGORITHMS, getAlgorithm } from "./algorithms/registry.js";
+import {
+  ALGORITHMS,
+  getAlgorithm,
+  getAlgorithmsForGridSize,
+} from "./algorithms/registry.js";
 import { CanvasView } from "./visualize/canvasView.js";
+import { HeapTreeView } from "./visualize/heapTreeView.js";
+import { QuickStripView } from "./visualize/quickStripView.js";
+import { MergePanelView } from "./visualize/mergePanelView.js";
+import { TimPanelView } from "./visualize/timPanelView.js";
 import { Animator } from "./visualize/animator.js";
-import { SortPlayer } from "./visualize/sortPlayer.js";
-import { recordSort, seekToStep, seekForward } from "./sort/sortSession.js";
+import { SortPlayer, playbackDelay } from "./visualize/sortPlayer.js";
+import {
+  recordSort,
+  seekToStep,
+  seekForward,
+  restoreGridState,
+  mutateStep,
+} from "./sort/sortSession.js";
 import {
   animatedStepCount,
   formatAlgoOptionLabel,
+  formatAlgoStats,
   formatPlaybackLabel,
   toDisplayPlaybackIndex,
   toInternalPlaybackIndex,
 } from "./benchmark.js";
+import {
+  createTutorialContext,
+  setContextCols,
+} from "./tutorial/context.js";
+import {
+  getTutorialOutro,
+  getTutorialStepMessage,
+  getTutorialBeforeStepMessage,
+} from "./tutorial/coach.js";
+import { getHeapSize } from "./tutorial/heap.js";
+import { getQuickStripState, trackQuickStep } from "./tutorial/quick.js";
+import { getMergePanelState, trackMergeStep } from "./tutorial/merge.js";
+import { getTimPanelState, trackTimStep } from "./tutorial/timsort.js";
+import { TutorialPanel } from "./tutorial/tutorialPanel.js";
+import { STEP } from "./algorithms/types.js";
+import { TIM_RECORDING_VERSION } from "./algorithms/timsort.js";
 
 const STATE = {
   IDLE: "idle",
@@ -31,6 +62,30 @@ function compareByHue(a, b) {
 export function createApp() {
   const canvas = /** @type {HTMLCanvasElement} */ (
     document.querySelector("#canvas")
+  );
+  const heapTreePanel = /** @type {HTMLElement} */ (
+    document.querySelector("#heap-tree-panel")
+  );
+  const heapTreeCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#heap-tree-canvas")
+  );
+  const quickStripPanel = /** @type {HTMLElement} */ (
+    document.querySelector("#quick-strip-panel")
+  );
+  const quickStripCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#quick-strip-canvas")
+  );
+  const mergePanelEl = /** @type {HTMLElement} */ (
+    document.querySelector("#merge-panel")
+  );
+  const mergePanelCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#merge-panel-canvas")
+  );
+  const timPanelEl = /** @type {HTMLElement} */ (
+    document.querySelector("#tim-panel")
+  );
+  const timPanelCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#tim-panel-canvas")
   );
   const colsInput = /** @type {HTMLInputElement} */ (
     document.querySelector("#grid-cols")
@@ -65,6 +120,15 @@ export function createApp() {
   const algorithmMeasureEl = /** @type {HTMLElement} */ (
     document.querySelector("#algorithm-measure")
   );
+  const algorithmDescriptionEl = /** @type {HTMLElement} */ (
+    document.querySelector("#algorithm-description")
+  );
+  const showHueInput = /** @type {HTMLInputElement} */ (
+    document.querySelector("#show-hue")
+  );
+  const showHueLabel = /** @type {HTMLElement | null} */ (
+    showHueInput.closest(".control--hue")
+  );
   const statusEl = /** @type {HTMLElement} */ (document.querySelector("#status"));
 
   /** @type {Grid | null} */
@@ -90,13 +154,423 @@ export function createApp() {
 
   const animator = new Animator();
   const sortPlayer = new SortPlayer();
+  const tutorialPanel = new TutorialPanel();
   const reducedMotion = window.matchMedia(
     "(prefers-reduced-motion: reduce)"
   ).matches;
 
+  /** @type {import('./tutorial/context.js').TutorialContext | null} */
+  let tutorialContext = null;
+  /** @type {number | null} Grid size to restore after leaving Tutorial speed */
+  let colsBeforeTutorial = null;
+  /** @type {number | null} Step index to resume after speed/algorithm change */
+  let pendingPlaybackRestart = null;
+  /** @type {number} Bumped to ignore stale playRecording completions */
+  let playbackSession = 0;
+  /** @type {number} */
+  let scrubRafId = 0;
+  /** @type {number | null} */
+  let pendingScrubInternal = null;
+  /** @type {number | null} */
+  let pendingScrubDisplay = null;
+  /** @type {boolean} */
+  let tutorialScrubTipPending = false;
+  /** @type {ReturnType<typeof setTimeout> | 0} */
+  let tutorialScrubTipTimeout = 0;
+
+  function isTutorialMode() {
+    const preset =
+      SPEED_PRESETS[Number(speedSelect.value)] ?? SPEED_PRESETS[0];
+    return Boolean(preset.tutorial);
+  }
+
+  function shouldShowHeapTree() {
+    return isTutorialMode() && algorithmSelect.value === "heap";
+  }
+
+  function shouldShowQuickStrip() {
+    return isTutorialMode() && algorithmSelect.value === "quick";
+  }
+
+  function shouldShowMergePanel() {
+    return isTutorialMode() && algorithmSelect.value === "merge";
+  }
+
+  function shouldShowTimPanel() {
+    return isTutorialMode() && algorithmSelect.value === "timsort";
+  }
+
+  /** Range anchor, pivot, scan, and placed highlights on the main grid. */
+  function syncQuickTutorialGridHighlights() {
+    if (!grid || !shouldShowQuickStrip() || !tutorialContext || sortComplete) {
+      return;
+    }
+    const strip = getQuickStripState(
+      tutorialContext,
+      grid.cellCount,
+      false
+    );
+
+    if (strip.active) {
+      if (
+        strip.rangeBottomIndex >= 0 &&
+        strip.rangeBottomIndex !== strip.pivotIndex
+      ) {
+        grid.highlightCell(strip.rangeBottomIndex, "rangeStart");
+      }
+      if (strip.pivotIndex >= 0) {
+        grid.highlightCell(strip.pivotIndex, "pivot");
+      }
+      return;
+    }
+
+    if (strip.lastPlacedIndex >= 0) {
+      grid.clearHighlights();
+      grid.highlightCell(strip.lastPlacedIndex, "placed");
+    }
+  }
+
+  function syncTutorialSidePanels() {
+    const showHeap = shouldShowHeapTree();
+    const showQuick = shouldShowQuickStrip();
+    const showMerge = shouldShowMergePanel();
+    const showTim = shouldShowTimPanel();
+
+    if (heapTreePanel) {
+      heapTreePanel.hidden = !showHeap;
+      if (showHeap && heapTreeView) {
+        heapTreeView.resize();
+      }
+    }
+
+    if (quickStripPanel) {
+      quickStripPanel.hidden = !showQuick;
+      if (showQuick && quickStripView) {
+        quickStripView.resize();
+      }
+    }
+
+    if (mergePanelEl) {
+      mergePanelEl.hidden = !showMerge;
+      if (showMerge && mergePanelView) {
+        mergePanelView.resize();
+      }
+    }
+
+    if (timPanelEl) {
+      timPanelEl.hidden = !showTim;
+      if (showTim && timPanelView) {
+        timPanelView.resize();
+      }
+    }
+
+    if (showHeap || showQuick || showMerge || showTim) {
+      animator.requestFrame();
+    }
+  }
+
+  /**
+   * @returns {number}
+   */
+  function getActiveHeapSize() {
+    if (!grid) return 0;
+    if (sortComplete) return 0;
+    if (recording) {
+      if (playbackIndex >= recording.steps.length) return 0;
+      const step = recording.steps[playbackIndex];
+      if (step?.type === STEP.DONE) return 0;
+      if (
+        playbackIndex > 0 &&
+        recording.steps[playbackIndex - 1]?.type === STEP.DONE
+      ) {
+        return 0;
+      }
+    }
+    if (tutorialContext) {
+      return getHeapSize(tutorialContext, grid.cellCount);
+    }
+    return grid.cellCount;
+  }
+
+  function warmTutorialContextThrough(internalIndex) {
+    if (!tutorialContext || !recording || !grid) return;
+    const algoId = algorithmSelect.value;
+
+    restoreGridState(grid, recording.snapshot);
+    for (let i = 0; i < internalIndex; i++) {
+      const step = recording.steps[i];
+      getTutorialBeforeStepMessage(algoId, step, tutorialContext, grid.cells);
+      mutateStep(grid, step);
+      getTutorialStepMessage(algoId, step, tutorialContext, grid.cells);
+    }
+    playbackIndex = seekToStep(grid, recording, internalIndex);
+    lastRenderedIndex = playbackIndex;
+    updatePlaybackSlider();
+    if (heapTreeView && shouldShowHeapTree()) {
+      heapTreeView.resize();
+    }
+    if (quickStripView && shouldShowQuickStrip()) {
+      quickStripView.resize();
+    }
+    if (mergePanelView && shouldShowMergePanel()) {
+      mergePanelView.resize();
+    }
+    if (timPanelView && shouldShowTimPanel()) {
+      timPanelView.resize();
+    }
+    animator.requestFrame();
+  }
+
+  /**
+   * @param {import('./tutorial/helpers.js').TutorialMessage} message
+   * @param {number} index
+   * @param {AbortSignal} signal
+   */
+  async function presentTutorialMessage(message, index, signal) {
+    if (!recording) return;
+
+    const display = toDisplayPlaybackIndex(recording, index);
+    const total = animatedStepCount(recording);
+
+    tutorialPanel.show({
+      ...message,
+      stepLabel: `${display} / ${total}`,
+    });
+
+    if (message.title === "Done" && grid) {
+      grid.clearHighlights();
+      animator.requestFrame();
+    } else if (message.focusIndex != null && grid) {
+      grid.clearHighlights();
+      const strip =
+        shouldShowQuickStrip() && tutorialContext
+          ? getQuickStripState(tutorialContext, grid.cellCount, false)
+          : null;
+
+      if (message.title === "Placed") {
+        grid.highlightCell(message.focusIndex, "placed");
+      } else if (strip?.active) {
+        if (message.focusIndex === strip.pivotIndex) {
+          grid.highlightCell(message.focusIndex, "pivot");
+        } else {
+          grid.highlightCell(message.focusIndex, "active");
+        }
+        if (
+          strip.rangeBottomIndex >= 0 &&
+          strip.rangeBottomIndex !== strip.pivotIndex &&
+          strip.rangeBottomIndex !== message.focusIndex
+        ) {
+          grid.highlightCell(strip.rangeBottomIndex, "rangeStart");
+        }
+      } else {
+        grid.highlightCell(message.focusIndex, "active");
+      }
+      animator.requestFrame();
+    }
+
+    if (message.pause === false) {
+      if (appState === STATE.RUNNING) {
+        setControlsPlayback(true);
+      }
+      if (!reducedMotion) {
+        await playbackDelay(CONFIG.tutorialStepMs, signal);
+      }
+      animator.requestFrame();
+      return;
+    }
+
+    if (appState === STATE.RUNNING) {
+      setTutorialContinueButton();
+    }
+    await tutorialPanel.waitForContinue();
+    if (appState === STATE.RUNNING) {
+      setControlsPlayback(true);
+    }
+  }
+
+  function showTutorialTipAt(internalIndex) {
+    if (!isTutorialMode() || !recording || !grid) return;
+
+    tutorialContext = createTutorialContext();
+    setContextCols(tutorialContext, grid.cols);
+    warmTutorialContextThrough(internalIndex);
+
+    const algoId = algorithmSelect.value;
+    const total = animatedStepCount(recording);
+    const display = toDisplayPlaybackIndex(recording, internalIndex);
+
+    if (internalIndex >= recording.steps.length) {
+      sortComplete = true;
+      grid?.clearHighlights();
+      animator.requestFrame();
+      tutorialPanel.show({
+        ...getTutorialOutro(algoId),
+        stepLabel: `${total} / ${total}`,
+      });
+      return;
+    }
+
+    if (internalIndex === 0) {
+      tutorialPanel.hide();
+      return;
+    }
+
+    const step = recording.steps[internalIndex - 1];
+    const message =
+      step.type === STEP.DONE
+        ? getTutorialOutro(algoId)
+        : getTutorialStepMessage(algoId, step, tutorialContext, grid.cells);
+
+    if (!message) {
+      tutorialPanel.hide();
+      return;
+    }
+
+    if (step.type === STEP.DONE) {
+      grid?.clearHighlights();
+      animator.requestFrame();
+    }
+
+    tutorialPanel.show({
+      ...message,
+      stepLabel: `${display} / ${total}`,
+    });
+  }
+
+  function interruptTutorialPlayback() {
+    if (!isTutorialMode() || appState !== STATE.RUNNING) return;
+    isScrubbing = false;
+    tutorialPanel.cancelWait();
+    sortPlayer.pause();
+  }
+
+  /**
+   * Stop the current run and start again at `resumeIndex` (e.g. after speed change).
+   * @param {number} resumeIndex
+   */
+  async function requestPlaybackResync(resumeIndex) {
+    pendingPlaybackRestart = null;
+    tutorialPanel.cancelWait();
+    tutorialPanel.hide();
+    tutorialContext = null;
+    sortPlayer.abort();
+    skipAbortedStatus = true;
+    appState = STATE.RUNNING;
+    setControlsPlayback(true);
+    statusEl.textContent = isTutorialMode()
+      ? "Tutorial — Space at key steps; neighbors play automatically"
+      : "Sorting…";
+
+    if (recording && grid) {
+      playbackIndex = Math.max(
+        0,
+        Math.min(resumeIndex, recording.steps.length)
+      );
+      seek(playbackIndex, { forceFullSeek: true });
+      updatePlaybackSlider();
+    }
+
+    await runPlayback(playbackIndex);
+  }
+
+  /**
+   * @param {number} displayIndex
+   */
+  function scheduleTutorialScrubTip() {
+    tutorialScrubTipPending = true;
+    if (tutorialScrubTipTimeout) {
+      clearTimeout(tutorialScrubTipTimeout);
+    }
+    tutorialScrubTipTimeout = setTimeout(() => {
+      tutorialScrubTipTimeout = 0;
+      if (!tutorialScrubTipPending) return;
+      tutorialScrubTipPending = false;
+      if (scrubRafId) {
+        cancelAnimationFrame(scrubRafId);
+        flushScrubFrame();
+      }
+      showTutorialTipAt(playbackIndex);
+    }, 120);
+  }
+
+  function clearTutorialScrubTipSchedule() {
+    if (tutorialScrubTipTimeout) {
+      clearTimeout(tutorialScrubTipTimeout);
+      tutorialScrubTipTimeout = 0;
+    }
+    tutorialScrubTipPending = false;
+  }
+
+  function applyTutorialScrub(displayIndex) {
+    if (!recording || !grid || !isTutorialMode()) return;
+
+    const total = animatedStepCount(recording);
+    const clamped = Math.max(0, Math.min(displayIndex, total));
+    const wasRunning = appState === STATE.RUNNING;
+
+    interruptTutorialPlayback();
+
+    playbackInput.value = String(clamped);
+    scheduleScrubSeek(clamped);
+    scheduleTutorialScrubTip();
+
+    if (wasRunning) {
+      appState = STATE.PAUSED;
+      setControlsPlayback(true, true);
+      statusEl.textContent = `Tutorial — step ${clamped} / ${total} (Resume or scrub)`;
+    }
+  }
+
+  function finishScrubbing() {
+    if (scrubRafId) {
+      cancelAnimationFrame(scrubRafId);
+      flushScrubFrame();
+    }
+    isScrubbing = false;
+    if (tutorialScrubTipPending) {
+      if (tutorialScrubTipTimeout) {
+        clearTimeout(tutorialScrubTipTimeout);
+        tutorialScrubTipTimeout = 0;
+      }
+      tutorialScrubTipPending = false;
+      showTutorialTipAt(playbackIndex);
+    }
+    updatePlaybackSlider();
+  }
+
+  /**
+   * @param {{ deferGridRestore?: boolean }} [options]
+   * When true, leaving Tutorial does not resize the grid (e.g. mid-playback speed change).
+   */
+  function syncTutorialChrome({ deferGridRestore = false } = {}) {
+    const tutorial = isTutorialMode();
+    tutorialPanel.setEnabled(tutorial);
+    syncTutorialSidePanels();
+
+    if (tutorial) {
+      const current = Number(colsInput.value);
+      if (current !== CONFIG.tutorialCols) {
+        if (colsBeforeTutorial === null) {
+          colsBeforeTutorial = current;
+        }
+        colsInput.value = String(CONFIG.tutorialCols);
+        applyGridSize();
+      }
+    } else {
+      tutorialPanel.cancelWait();
+      tutorialContext = null;
+      if (colsBeforeTutorial !== null && !deferGridRestore) {
+        colsInput.value = String(colsBeforeTutorial);
+        colsBeforeTutorial = null;
+        applyGridSize();
+      }
+    }
+  }
+
   const view = new CanvasView(canvas, (width, height) => {
     if (!grid) {
-      grid = new Grid(CONFIG.cols, width, height);
+      const cols = Number(colsInput.value) || CONFIG.cols;
+      grid = new Grid(cols, width, height);
       benchmarkSnapshot = grid.captureState();
       invalidateRecording();
       refreshAlgorithmOptions();
@@ -106,9 +580,59 @@ export function createApp() {
     animator.requestFrame();
   });
 
+  const heapTreeView = heapTreeCanvas ? new HeapTreeView(heapTreeCanvas) : null;
+  const quickStripView = quickStripCanvas
+    ? new QuickStripView(quickStripCanvas)
+    : null;
+  const mergePanelView = mergePanelCanvas
+    ? new MergePanelView(mergePanelCanvas)
+    : null;
+  const timPanelView = timPanelCanvas
+    ? new TimPanelView(timPanelCanvas)
+    : null;
+
+  function syncShowHueValues() {
+    if (grid) {
+      grid.showHueValues = showHueInput.checked;
+    }
+    if (heapTreeView) {
+      heapTreeView.showHueValues = showHueInput.checked;
+    }
+    if (quickStripView) {
+      quickStripView.showHueValues = showHueInput.checked;
+    }
+    if (mergePanelView) {
+      mergePanelView.showHueValues = showHueInput.checked;
+    }
+    if (timPanelView) {
+      timPanelView.showHueValues = showHueInput.checked;
+    }
+  }
+
   function render() {
     if (!grid) return;
     view.render((ctx) => grid.draw(ctx));
+    if (heapTreeView && shouldShowHeapTree()) {
+      heapTreeView.render(grid.cells, getActiveHeapSize());
+    }
+    if (quickStripView && shouldShowQuickStrip()) {
+      quickStripView.render(
+        grid.cells,
+        getQuickStripState(tutorialContext, grid.cellCount, sortComplete)
+      );
+    }
+    if (mergePanelView && shouldShowMergePanel()) {
+      mergePanelView.render(
+        grid.cells,
+        getMergePanelState(tutorialContext, grid.cells, sortComplete)
+      );
+    }
+    if (timPanelView && shouldShowTimPanel()) {
+      timPanelView.render(
+        grid.cells,
+        getTimPanelState(tutorialContext, grid.cells, sortComplete)
+      );
+    }
   }
 
   animator.start(render);
@@ -158,12 +682,62 @@ export function createApp() {
     return textWidth + padX + borderX + 4;
   }
 
+  function getGridCols() {
+    const cols = grid?.cols ?? Number(colsInput.value);
+    return cols > 0 ? cols : CONFIG.cols;
+  }
+
+  function isLargeGrid(/** @type {number} */ cols) {
+    return cols > CONFIG.largeGridColsThreshold;
+  }
+
   function getAlgorithmPickerWidth() {
+    const algorithms = getAlgorithmsForGridSize(getGridCols());
     let max = 0;
-    for (const algo of ALGORITHMS) {
+    for (const algo of algorithms) {
       max = Math.max(max, measureAlgorithmLabelWidth(algo.label));
     }
     return max;
+  }
+
+  /**
+   * @param {number} cols
+   */
+  function ensureAlgorithmForGridSize(cols) {
+    const allowed = getAlgorithmsForGridSize(cols);
+    const current = algorithmSelect.value;
+    if (allowed.some((a) => a.id === current)) {
+      return;
+    }
+    const fallback = allowed[0]?.id;
+    if (!fallback) {
+      return;
+    }
+    if (appState === STATE.RUNNING || appState === STATE.PAUSED) {
+      void switchAlgorithmDuringPlayback(fallback);
+      return;
+    }
+    applyAlgorithmSelection(fallback);
+    invalidateRecording();
+  }
+
+  /**
+   * @param {number} cols
+   */
+  function syncLargeGridChrome(cols) {
+    const large = isLargeGrid(cols);
+    if (showHueLabel) {
+      showHueLabel.hidden = large;
+    }
+    if (large) {
+      showHueInput.checked = false;
+      if (!isTutorialMode()) {
+        speedSelect.value = String(CONFIG.veryFastSpeedPreset);
+      }
+    }
+    ensureAlgorithmForGridSize(cols);
+    refreshAlgorithmOptions();
+    syncShowHueValues();
   }
 
   function updateAlgorithmSelectWidth() {
@@ -180,17 +754,27 @@ export function createApp() {
     algorithmTrigger.textContent = algo?.label ?? "";
   }
 
+  function updateAlgorithmDescription() {
+    const algo = getAlgorithm(algorithmSelect.value);
+    algorithmDescriptionEl.textContent = algo?.description ?? "";
+  }
+
   function setAlgorithmMenuOpen(open) {
     algorithmList.hidden = !open;
     algorithmTrigger.setAttribute("aria-expanded", String(open));
   }
 
   function refreshAlgorithmOptions() {
-    const selected = algorithmSelect.value || ALGORITHMS[0]?.id;
+    const cols = getGridCols();
+    const algorithms = getAlgorithmsForGridSize(cols);
+    let selected = algorithmSelect.value || algorithms[0]?.id;
+    if (!algorithms.some((a) => a.id === selected)) {
+      selected = algorithms[0]?.id ?? selected;
+    }
     algorithmSelect.innerHTML = "";
     algorithmList.innerHTML = "";
 
-    for (const algo of ALGORITHMS) {
+    for (const algo of algorithms) {
       const label = formatAlgoOptionLabel(
         algo.label,
         algoResults.get(algo.id)
@@ -215,18 +799,16 @@ export function createApp() {
 
     algorithmSelect.value = selected;
     updateAlgorithmTriggerLabel();
+    updateAlgorithmDescription();
     updateAlgorithmSelectWidth();
   }
 
-  function selectAlgorithm(algoId) {
-    if (algorithmSelect.value === algoId) {
-      setAlgorithmMenuOpen(false);
-      return;
-    }
-
+  function applyAlgorithmSelection(algoId) {
     algorithmSelect.value = algoId;
     updateAlgorithmTriggerLabel();
+    updateAlgorithmDescription();
     updateAlgorithmSelectWidth();
+    syncTutorialSidePanels();
     setAlgorithmMenuOpen(false);
 
     for (const item of algorithmList.querySelectorAll("[role=option]")) {
@@ -235,8 +817,56 @@ export function createApp() {
         String(item.dataset.value === algoId)
       );
     }
+  }
 
-    if (appState !== STATE.IDLE) return;
+  /**
+   * @param {string} algoId
+   */
+  async function switchAlgorithmDuringPlayback(algoId) {
+    const wasRunning = appState === STATE.RUNNING;
+    applyAlgorithmSelection(algoId);
+
+    pendingPlaybackRestart = null;
+    tutorialPanel.cancelWait();
+    tutorialPanel.hide();
+    tutorialContext = null;
+    sortPlayer.pause();
+
+    if (!ensureRecording()) return;
+
+    restoreBenchmark();
+    playbackIndex = 0;
+    lastRenderedIndex = 0;
+    sortComplete = false;
+    seek(0);
+    updatePlaybackSlider();
+
+    if (wasRunning) {
+      void requestPlaybackResync(0);
+      return;
+    }
+
+    appState = STATE.PAUSED;
+    setControlsPlayback(true, true);
+    const algo = getAlgorithm(algoId);
+    statusEl.textContent = `Paused — ${algo?.label ?? algoId}, press Resume`;
+  }
+
+  /**
+   * @param {string} algoId
+   */
+  function selectAlgorithm(algoId) {
+    if (algorithmSelect.value === algoId) {
+      setAlgorithmMenuOpen(false);
+      return;
+    }
+
+    if (appState === STATE.RUNNING || appState === STATE.PAUSED) {
+      void switchAlgorithmDuringPlayback(algoId);
+      return;
+    }
+
+    applyAlgorithmSelection(algoId);
     invalidateRecording();
   }
 
@@ -262,7 +892,8 @@ export function createApp() {
 
   function getPlaybackSettings() {
     const preset =
-      SPEED_PRESETS[Number(speedSelect.value)] ?? SPEED_PRESETS[2];
+      SPEED_PRESETS[Number(speedSelect.value)] ??
+      SPEED_PRESETS[CONFIG.defaultSpeedPreset];
     const count = recording ? animatedStepCount(recording) : 500;
     return computePlaybackSettings(preset, count);
   }
@@ -282,18 +913,84 @@ export function createApp() {
     playbackInput.max = String(max);
     playbackInput.value = String(displayIndex);
     playbackInput.disabled = false;
+    updatePlaybackValue(displayIndex, max, recordMs);
+  }
+
+  /**
+   * @param {number} displayIndex
+   * @param {number} totalSteps
+   * @param {number | undefined} recordMs
+   */
+  function updatePlaybackValue(displayIndex, totalSteps, recordMs) {
     playbackValue.textContent = formatPlaybackLabel(
       displayIndex,
-      max,
+      totalSteps,
       recordMs
     );
   }
 
-  function seek(index) {
+  function cancelScrubFrame() {
+    if (scrubRafId) {
+      cancelAnimationFrame(scrubRafId);
+      scrubRafId = 0;
+    }
+    pendingScrubInternal = null;
+    pendingScrubDisplay = null;
+  }
+
+  function flushScrubFrame() {
+    scrubRafId = 0;
+    if (!recording || !grid || pendingScrubInternal == null) {
+      pendingScrubInternal = null;
+      pendingScrubDisplay = null;
+      return;
+    }
+
+    const target = pendingScrubInternal;
+    const display =
+      pendingScrubDisplay ?? toDisplayPlaybackIndex(recording, target);
+    pendingScrubInternal = null;
+    pendingScrubDisplay = null;
+
+    seek(target, { syncSlider: false });
+    const max = animatedStepCount(recording);
+    const recordMs = algoResults.get(algorithmSelect.value)?.recordMs;
+    updatePlaybackValue(display, max, recordMs);
+  }
+
+  /**
+   * @param {number} displayIndex
+   */
+  function scheduleScrubSeek(displayIndex) {
+    if (!recording) return;
+    pendingScrubInternal = toInternalPlaybackIndex(recording, displayIndex);
+    pendingScrubDisplay = displayIndex;
+    if (!scrubRafId) {
+      scrubRafId = requestAnimationFrame(flushScrubFrame);
+    }
+  }
+
+  /**
+   * @param {number} index
+   * @param {{ syncSlider?: boolean, forceFullSeek?: boolean }} [options]
+   */
+  function seek(index, options = {}) {
     if (!grid || !recording) return;
-    playbackIndex = seekToStep(grid, recording, index);
+
+    const syncSlider = options.syncSlider !== false;
+    const target = Math.max(0, Math.min(index, recording.steps.length));
+
+    if (!options.forceFullSeek && target >= lastRenderedIndex) {
+      playbackIndex = seekForward(grid, recording, lastRenderedIndex, target);
+    } else {
+      playbackIndex = seekToStep(grid, recording, target);
+    }
     lastRenderedIndex = playbackIndex;
-    updatePlaybackSlider();
+
+    if (syncSlider) {
+      updatePlaybackSlider();
+    }
+    syncQuickTutorialGridHighlights();
     animator.requestFrame();
   }
 
@@ -302,13 +999,20 @@ export function createApp() {
     playbackIndex = seekForward(grid, recording, fromIndex, toIndex);
     lastRenderedIndex = playbackIndex;
     updatePlaybackSlider();
+    syncQuickTutorialGridHighlights();
     animator.requestFrame();
   }
 
   function stopPlayback({ skipStatus = false } = {}) {
+    pendingPlaybackRestart = null;
     skipAbortedStatus = skipStatus;
+    tutorialPanel.cancelWait();
+    tutorialPanel.hide();
+    tutorialContext = null;
     sortPlayer.abort();
     appState = STATE.IDLE;
+    cancelScrubFrame();
+    clearTutorialScrubTipSchedule();
     isScrubbing = false;
     setControlsPlayback(false);
   }
@@ -321,39 +1025,86 @@ export function createApp() {
       stopPlayback({ skipStatus: true });
     }
 
+    if (cols > 10) {
+      showHueInput.checked = false;
+    }
+
     grid?.setCols(cols);
+    syncLargeGridChrome(cols);
     resetBenchmarkInput();
     animator.requestFrame();
     statusEl.textContent = `${cols}×${cols} grid`;
   }
 
+  function setTutorialContinueButton() {
+    playToggleBtn.dataset.playback = "continue";
+    playToggleBtn.setAttribute("aria-label", "Continue tutorial step");
+    playToggleBtn.title = "Continue tutorial step";
+  }
+
   function setControlsPlayback(isPlaying, paused = false) {
     const busy = isPlaying || paused;
-    algorithmSelect.disabled = busy;
-    algorithmTrigger.disabled = busy;
     shuffleBtn.disabled = busy;
     playbackInput.disabled = !recording;
 
+    if (
+      isTutorialMode() &&
+      isPlaying &&
+      !paused &&
+      tutorialPanel.isWaitingForContinue
+    ) {
+      setTutorialContinueButton();
+      return;
+    }
+
     if (paused) {
-      playToggleBtn.textContent = "Resume";
+      playToggleBtn.dataset.playback = "paused";
       playToggleBtn.setAttribute("aria-label", "Resume sorting");
+      playToggleBtn.title = "Resume sorting";
     } else if (isPlaying) {
-      playToggleBtn.textContent = "Pause";
+      playToggleBtn.dataset.playback = "playing";
       playToggleBtn.setAttribute("aria-label", "Pause sorting");
+      playToggleBtn.title = "Pause sorting";
     } else {
-      playToggleBtn.textContent = "Start";
+      playToggleBtn.dataset.playback = "idle";
       playToggleBtn.setAttribute("aria-label", "Start sorting");
+      playToggleBtn.title = "Start sorting";
     }
   }
 
   function setIdle(message) {
     appState = STATE.IDLE;
     setControlsPlayback(false);
+
+    const onDeferredTutorialGrid =
+      !isTutorialMode() &&
+      grid?.cols === CONFIG.tutorialCols &&
+      colsBeforeTutorial !== null;
+
+    if (onDeferredTutorialGrid) {
+      if (sortComplete) {
+        colsBeforeTutorial = null;
+      }
+      tutorialPanel.setEnabled(false);
+      tutorialPanel.hide();
+      tutorialContext = null;
+    } else {
+      syncTutorialChrome();
+    }
+
     statusEl.textContent = message;
     updatePlaybackSlider();
   }
 
   function onPlayToggleClick() {
+    if (
+      appState === STATE.RUNNING &&
+      isTutorialMode() &&
+      tutorialPanel.isWaitingForContinue
+    ) {
+      tutorialPanel.continueStep();
+      return;
+    }
     if (appState === STATE.RUNNING) {
       pauseSort();
     } else {
@@ -361,11 +1112,49 @@ export function createApp() {
     }
   }
 
+  function mergeRecordingNeedsRefresh(/** @type {import('./sort/sortSession.js').SortRecording} */ rec) {
+    return rec.steps.some(
+      (s) =>
+        (s.type === STEP.COMPARE || s.type === STEP.SWAP) &&
+        !("merge" in s && s.merge)
+    );
+  }
+
+  function timRecordingNeedsRefresh(
+    /** @type {import('./sort/sortSession.js').SortRecording} */ rec,
+    /** @type {import('./benchmark.js').AlgoBenchmarkResult | undefined} */ cached
+  ) {
+    if (cached?.timRecordingVersion !== TIM_RECORDING_VERSION) {
+      return true;
+    }
+    return rec.steps.some(
+      (s) =>
+        (s.type === STEP.COMPARE || s.type === STEP.SWAP) &&
+        !(("merge" in s && s.merge) || ("tim" in s && s.tim))
+    );
+  }
+
   function ensureRecording() {
     if (!grid || !benchmarkSnapshot) return null;
 
     const algoId = algorithmSelect.value;
-    const cached = algoResults.get(algoId);
+    let cached = algoResults.get(algoId);
+    if (
+      cached &&
+      algoId === "merge" &&
+      mergeRecordingNeedsRefresh(cached.recording)
+    ) {
+      algoResults.delete(algoId);
+      cached = undefined;
+    }
+    if (
+      cached &&
+      algoId === "timsort" &&
+      timRecordingNeedsRefresh(cached.recording, cached)
+    ) {
+      algoResults.delete(algoId);
+      cached = undefined;
+    }
     if (cached) {
       recording = cached.recording;
       refreshAlgorithmOptions();
@@ -383,7 +1172,14 @@ export function createApp() {
     const recordMs = Math.round(performance.now() - startMs);
     const steps = animatedStepCount(rec);
 
-    algoResults.set(algoId, { recording: rec, steps, recordMs });
+    algoResults.set(algoId, {
+      recording: rec,
+      steps,
+      recordMs,
+      ...(algoId === "timsort"
+        ? { timRecordingVersion: TIM_RECORDING_VERSION }
+        : {}),
+    });
     recording = rec;
     refreshAlgorithmOptions();
 
@@ -396,21 +1192,91 @@ export function createApp() {
   async function runPlayback(fromIndex) {
     if (!grid || !recording) return;
 
+    const session = ++playbackSession;
+    const tutorialMode = isTutorialMode();
+    const algoId = algorithmSelect.value;
+    isScrubbing = false;
+
+    if (fromIndex === 0) {
+      sortComplete = false;
+    }
+
     appState = STATE.RUNNING;
     setControlsPlayback(true);
-    statusEl.textContent = "Sorting…";
+    statusEl.textContent = tutorialMode
+      ? "Tutorial — Space at key steps; neighbors play automatically"
+      : "Sorting…";
 
     lastRenderedIndex = fromIndex;
+
+    if (isTutorialMode()) {
+      tutorialContext = createTutorialContext();
+      setContextCols(tutorialContext, grid.cols);
+      warmTutorialContextThrough(fromIndex);
+    } else {
+      tutorialContext = null;
+    }
 
     const result = await sortPlayer.playRecording(recording, fromIndex, {
       getPlaybackSettings,
       reducedMotion,
+      tutorialMode,
       onFrame: (from, to) => {
-        if (!isScrubbing) {
+        if (!isScrubbing || tutorialMode) {
           showFrame(from, to);
         }
       },
+      onTutorialBeforeStep: async ({ step, index, signal }) => {
+        if (!tutorialContext || !recording) return;
+        const before = getTutorialBeforeStepMessage(
+          algoId,
+          step,
+          tutorialContext,
+          grid.cells
+        );
+        if (!before) return;
+        await presentTutorialMessage(before, index, signal);
+      },
+      onTutorialStep: async ({ step, index, signal }) => {
+        if (!tutorialContext || !recording) return;
+        if (algoId === "quick") {
+          trackQuickStep(step, tutorialContext);
+        }
+        if (algoId === "merge" && step.type === STEP.DONE) {
+          trackMergeStep(step, tutorialContext, grid.cells);
+        }
+        if (algoId === "timsort" && step.type === STEP.DONE) {
+          trackTimStep(step, tutorialContext, grid.cells);
+        }
+        const message =
+          step?.type === STEP.DONE
+            ? getTutorialOutro(algoId)
+            : getTutorialStepMessage(
+                algoId,
+                step,
+                tutorialContext,
+                grid.cells
+              );
+
+        if (!message) {
+          tutorialPanel.hide();
+          if (!reducedMotion) {
+            await playbackDelay(CONFIG.tutorialStepMs, signal);
+          }
+          animator.requestFrame();
+          return;
+        }
+
+        await presentTutorialMessage(message, index, signal);
+      },
     });
+
+    if (session !== playbackSession) {
+      return;
+    }
+
+    tutorialPanel.hide();
+    tutorialContext = null;
 
     if (result === "completed") {
       sortComplete = true;
@@ -419,7 +1285,7 @@ export function createApp() {
       const algo = getAlgorithm(algorithmSelect.value);
       const result = algo ? algoResults.get(algo.id) : undefined;
       const statsText = result
-        ? ` — ${result.steps.toLocaleString()} steps · ${result.recordMs} ms`
+        ? ` — ${formatAlgoStats(result.steps, result.recordMs)}`
         : "";
       setIdle(
         `Sorted by hue (${algo?.label ?? "sort"}${statsText}) — Start to replay`
@@ -428,9 +1294,17 @@ export function createApp() {
     }
 
     if (result === "paused") {
+      if (pendingPlaybackRestart !== null && session === playbackSession) {
+        const resumeIndex = pendingPlaybackRestart;
+        pendingPlaybackRestart = null;
+        void requestPlaybackResync(resumeIndex);
+        return;
+      }
+
       appState = STATE.PAUSED;
       setControlsPlayback(true, true);
-      statusEl.textContent = `Paused at step ${toDisplayPlaybackIndex(recording, playbackIndex)} / ${animatedStepCount(recording)}`;
+      const prefix = isTutorialMode() ? "Tutorial paused" : "Paused";
+      statusEl.textContent = `${prefix} at step ${toDisplayPlaybackIndex(recording, playbackIndex)} / ${animatedStepCount(recording)}`;
       return;
     }
 
@@ -449,12 +1323,31 @@ export function createApp() {
       return;
     }
 
+    if (!isTutorialMode()) {
+      tutorialContext = null;
+    }
+
     if (!ensureRecording()) return;
 
     if (sortComplete) {
+      sortComplete = false;
       playbackIndex = 0;
       restoreBenchmark();
       seek(0);
+      grid?.clearHighlights();
+      if (heapTreeView && shouldShowHeapTree()) {
+        heapTreeView.resize();
+      }
+      if (quickStripView && shouldShowQuickStrip()) {
+        quickStripView.resize();
+      }
+      if (mergePanelView && shouldShowMergePanel()) {
+        mergePanelView.resize();
+      }
+      if (timPanelView && shouldShowTimPanel()) {
+        timPanelView.resize();
+      }
+      animator.requestFrame();
     }
 
     await runPlayback(playbackIndex);
@@ -462,6 +1355,9 @@ export function createApp() {
 
   function pauseSort() {
     if (appState !== STATE.RUNNING) return;
+    pendingPlaybackRestart = null;
+    tutorialPanel.cancelWait();
+    tutorialPanel.hide();
     sortPlayer.pause();
   }
 
@@ -469,7 +1365,32 @@ export function createApp() {
     colsValue.textContent = colsInput.value;
   }
 
-  colsInput.addEventListener("input", applyGridSize);
+  function onGridColsInput() {
+    const cols = Number(colsInput.value);
+
+    if (isTutorialMode() && cols > CONFIG.tutorialCols) {
+      if (appState !== STATE.IDLE) {
+        stopPlayback({ skipStatus: true });
+      }
+      colsBeforeTutorial = null;
+      speedSelect.value = String(CONFIG.mediumSpeedPreset);
+      syncTutorialChrome();
+      applyGridSize();
+      if (appState === STATE.IDLE) {
+        statusEl.textContent = `${cols}×${cols} grid — press Start to sort`;
+      }
+      return;
+    }
+
+    applyGridSize();
+  }
+
+  colsInput.addEventListener("input", onGridColsInput);
+
+  showHueInput.addEventListener("change", () => {
+    syncShowHueValues();
+    animator.requestFrame();
+  });
 
   algorithmTrigger.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -498,30 +1419,52 @@ export function createApp() {
   });
 
   playbackInput.addEventListener("pointerdown", () => {
+    if (!recording) return;
     isScrubbing = true;
-    if (appState === STATE.RUNNING) {
+    if (isTutorialMode()) {
+      interruptTutorialPlayback();
+    } else if (appState === STATE.RUNNING) {
       sortPlayer.pause();
     }
   });
 
   playbackInput.addEventListener("input", () => {
     if (!recording) return;
-    playbackIndex = toInternalPlaybackIndex(
-      recording,
-      Number(playbackInput.value)
-    );
-    seek(playbackIndex);
+    const displayIndex = Number(playbackInput.value);
+
+    if (isTutorialMode()) {
+      applyTutorialScrub(displayIndex);
+      return;
+    }
+
+    scheduleScrubSeek(displayIndex);
     if (appState === STATE.RUNNING) {
       appState = STATE.PAUSED;
       setControlsPlayback(true, true);
       const total = animatedStepCount(recording);
-      statusEl.textContent = `Paused at step ${toDisplayPlaybackIndex(recording, playbackIndex)} / ${total}`;
+      statusEl.textContent = `Paused at step ${displayIndex} / ${total}`;
     }
   });
 
-  playbackInput.addEventListener("pointerup", () => {
-    isScrubbing = false;
-  });
+  const mainStage = document.querySelector(".main__stage");
+  if (mainStage) {
+    mainStage.addEventListener(
+      "wheel",
+      (e) => {
+        if (!isTutorialMode() || !recording) return;
+
+        e.preventDefault();
+        const current = toDisplayPlaybackIndex(recording, playbackIndex);
+        const delta = e.deltaY > 0 ? 1 : -1;
+        applyTutorialScrub(current + delta);
+      },
+      { passive: false }
+    );
+  }
+
+  playbackInput.addEventListener("pointerup", finishScrubbing);
+
+  playbackInput.addEventListener("pointercancel", finishScrubbing);
 
   shuffleBtn.addEventListener("click", () => {
     if (appState !== STATE.IDLE) return;
@@ -533,9 +1476,38 @@ export function createApp() {
 
   playToggleBtn.addEventListener("click", onPlayToggleClick);
 
+  speedSelect.addEventListener("change", async () => {
+    const wasRunning = appState === STATE.RUNNING;
+    const wasPaused = appState === STATE.PAUSED;
+    const wasBusy = wasRunning || wasPaused;
+    const resumeIndex = playbackIndex;
+    const leavingTutorialDuringPlayback =
+      wasBusy && colsBeforeTutorial !== null && !isTutorialMode();
+
+    syncTutorialChrome({ deferGridRestore: leavingTutorialDuringPlayback });
+
+    if (wasBusy) {
+      await requestPlaybackResync(resumeIndex);
+      return;
+    }
+
+    if (appState === STATE.IDLE) {
+      statusEl.textContent = isTutorialMode()
+        ? `Tutorial — ${CONFIG.tutorialCols}×${CONFIG.tutorialCols} grid, press Start`
+        : `${grid?.cols ?? CONFIG.cols}×${grid?.cols ?? CONFIG.cols} grid — press Start to sort`;
+    }
+  });
+
+  colsInput.max = String(CONFIG.maxCols);
   refreshAlgorithmOptions();
   populateSpeedPresets();
+  syncShowHueValues();
+  syncTutorialChrome();
   syncColsLabel();
+  syncLargeGridChrome(getGridCols());
   updatePlaybackSlider();
-  setIdle(`${CONFIG.cols}×${CONFIG.cols} grid — press Start to sort`);
+  const initialCols = grid?.cols ?? (Number(colsInput.value) || CONFIG.cols);
+  statusEl.textContent = isTutorialMode()
+    ? `Tutorial — ${CONFIG.tutorialCols}×${CONFIG.tutorialCols} grid, press Start`
+    : `${initialCols}×${initialCols} grid — press Start to sort`;
 }

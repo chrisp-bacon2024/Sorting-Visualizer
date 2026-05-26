@@ -1,3 +1,4 @@
+import { CONFIG } from "../config.js";
 import { bubbleSort } from "./bubble.js";
 import { insertionSort } from "./insertion.js";
 import { selectionSort } from "./selection.js";
@@ -9,19 +10,75 @@ import { timSort } from "./timsort.js";
 /** @typedef {import('./types.js').SortGenerator} SortGenerator */
 
 /**
- * @typedef {{ id: string, label: string, sort: SortGenerator }} AlgorithmEntry
+ * @typedef {{ id: string, label: string, description: string, sort: SortGenerator }} AlgorithmEntry
  */
 
 /** @type {AlgorithmEntry[]} */
 export const ALGORITHMS = [
-  { id: "bubble", label: "Bubble Sort", sort: bubbleSort },
-  { id: "insertion", label: "Insertion Sort", sort: insertionSort },
-  { id: "selection", label: "Selection Sort", sort: selectionSort },
-  { id: "heap", label: "Heap Sort", sort: heapSort },
-  { id: "quick", label: "Quick Sort", sort: quickSort },
-  { id: "merge", label: "Merge Sort", sort: mergeSort },
-  { id: "timsort", label: "Tim Sort", sort: timSort },
+  {
+    id: "bubble",
+    label: "Bubble Sort",
+    description:
+      "Walks the grid comparing neighbors; larger hues bubble towards their sorted position each pass.",
+    sort: bubbleSort,
+  },
+  {
+    id: "insertion",
+    label: "Insertion Sort",
+    description:
+      "Builds a sorted section from the left by sliding each hue into place among earlier cells.",
+    sort: insertionSort,
+  },
+  {
+    id: "selection",
+    label: "Selection Sort",
+    description:
+      "Each pass finds the smallest remaining hue and puts it in the next left slot.",
+    sort: selectionSort,
+  },
+  {
+    id: "heap",
+    label: "Heap Sort",
+    description:
+      "Builds a max-heap, locks the largest hue at the tail each round, then re-heapifies from the root.",
+    sort: heapSort,
+  },
+  {
+    id: "quick",
+    label: "Quick Sort",
+    description:
+      "Partitions each section around a pivot, then sorts the left and right parts.",
+    sort: quickSort,
+  },
+  {
+    id: "merge",
+    label: "Merge Sort",
+    description:
+      "Splits the grid into even sub-runs, sorts each run, then merges them back together.",
+    sort: mergeSort,
+  },
+  {
+    id: "timsort",
+    label: "Tim Sort",
+    description:
+      "Finds natural increasing runs, fixes short ones, and merges runs—fast on nearly sorted data.",
+    sort: timSort,
+  },
 ];
+
+/** @type {ReadonlySet<string>} */
+const HIDDEN_ON_LARGE_GRID = new Set(["bubble", "insertion", "selection"]);
+
+/**
+ * @param {number} cols Grid width/height in cells
+ * @returns {AlgorithmEntry[]}
+ */
+export function getAlgorithmsForGridSize(cols) {
+  if (cols <= CONFIG.largeGridColsThreshold) {
+    return ALGORITHMS;
+  }
+  return ALGORITHMS.filter((entry) => !HIDDEN_ON_LARGE_GRID.has(entry.id));
+}
 
 /**
  * @param {string} id

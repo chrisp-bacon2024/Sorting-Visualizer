@@ -45,10 +45,13 @@ function indexOfCell(cells, cellId) {
  * @param {Cell} cell
  * @param {number} target
  */
-function* moveCellToIndex(cells, cell, target) {
+/**
+ * @param {import('./types.js').MergeMeta} merge
+ */
+function* moveCellToIndex(cells, cell, target, merge) {
   const current = indexOfCell(cells, cell.id);
   if (current !== target) {
-    yield { type: STEP.SWAP, i: current, j: target };
+    yield { type: STEP.SWAP, i: current, j: target, merge };
   }
 }
 
@@ -72,26 +75,31 @@ function* merge(cells, aux, lo, mid, hi, compare) {
   while (left <= mid && right <= hi) {
     const leftIndex = indexOfCell(cells, aux[left].id);
     const rightIndex = indexOfCell(cells, aux[right].id);
-    yield { type: STEP.COMPARE, i: leftIndex, j: rightIndex };
+    yield {
+      type: STEP.COMPARE,
+      i: leftIndex,
+      j: rightIndex,
+      merge: { lo, mid, hi, left, right, k },
+    };
 
     if (compare(aux[left], aux[right]) <= 0) {
-      yield* moveCellToIndex(cells, aux[left], k);
+      yield* moveCellToIndex(cells, aux[left], k, { lo, mid, hi, left, right, k });
       left++;
     } else {
-      yield* moveCellToIndex(cells, aux[right], k);
+      yield* moveCellToIndex(cells, aux[right], k, { lo, mid, hi, left, right, k });
       right++;
     }
     k++;
   }
 
   while (left <= mid) {
-    yield* moveCellToIndex(cells, aux[left], k);
+    yield* moveCellToIndex(cells, aux[left], k, { lo, mid, hi, left, right, k });
     left++;
     k++;
   }
 
   while (right <= hi) {
-    yield* moveCellToIndex(cells, aux[right], k);
+    yield* moveCellToIndex(cells, aux[right], k, { lo, mid, hi, left, right, k });
     right++;
     k++;
   }

@@ -2,7 +2,7 @@ import { STEP } from "./algorithms/types.js";
 
 /**
  * @typedef {import('./sort/sortSession.js').SortRecording} SortRecording
- * @typedef {{ recording: SortRecording, steps: number, recordMs: number }} AlgoBenchmarkResult
+ * @typedef {{ recording: SortRecording, steps: number, recordMs: number, timRecordingVersion?: number }} AlgoBenchmarkResult
  */
 
 /**
@@ -33,11 +33,21 @@ export function toInternalPlaybackIndex(recording, displayIndex) {
   return displayIndex;
 }
 /**
+ * @param {number} ms
+ */
+export function formatRecordMs(ms) {
+  if (ms > 999) {
+    return `${(ms / 1000).toFixed(2)} s`;
+  }
+  return `${ms} ms`;
+}
+
+/**
  * @param {number} steps
  * @param {number} recordMs
  */
 export function formatAlgoStats(steps, recordMs) {
-  return `${steps.toLocaleString()} steps · ${recordMs} ms`;
+  return `${steps.toLocaleString()} steps · ${formatRecordMs(recordMs)}`;
 }
 
 /**
@@ -57,5 +67,5 @@ export function formatAlgoOptionLabel(label, result) {
 export function formatPlaybackLabel(displayIndex, totalSteps, recordMs) {
   const steps = `${displayIndex.toLocaleString()} / ${totalSteps.toLocaleString()}`;
   if (recordMs == null) return steps;
-  return `${steps} · ${recordMs} ms`;
+  return `${steps} · ${formatRecordMs(recordMs)}`;
 }

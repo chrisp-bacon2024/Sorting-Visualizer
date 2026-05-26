@@ -1,11 +1,12 @@
 /** @typedef {import('../sort/sortSession.js').SortRecording} SortRecording */
+/** @typedef {import('../algorithms/types.js').SortStep} SortStep */
 import { STEP } from "../algorithms/types.js";
 
 /**
  * @param {number} ms
  * @param {AbortSignal} [signal]
  */
-function delay(ms, signal) {
+export function playbackDelay(ms, signal) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new DOMException("Aborted", "AbortError"));
@@ -47,13 +48,27 @@ export class SortPlayer {
   /**
    * @param {SortRecording} recording
    * @param {number} startIndex
-   * @param {{ getPlaybackSettings: () => { delayMs: number, stride: number }, onFrame: (fromIndex: number, toIndex: number) => void, reducedMotion?: boolean }} options
+   * @param {{
+   *   getPlaybackSettings: () => { delayMs: number, stride: number, tutorial?: boolean },
+   *   onFrame: (fromIndex: number, toIndex: number) => void,
+   *   reducedMotion?: boolean,
+   *   tutorialMode?: boolean,
+   *   onTutorialStep?: (ctx: { step: SortStep, index: number, signal: AbortSignal }) => Promise<void>,
+   *   onTutorialBeforeStep?: (ctx: { step: SortStep, index: number, signal: AbortSignal }) => Promise<void>,
+   * }} options
    * @returns {Promise<'completed' | 'paused' | 'aborted'>}
    */
   async playRecording(
     recording,
     startIndex,
-    { getPlaybackSettings, onFrame, reducedMotion = false }
+    {
+      getPlaybackSettings,
+      onFrame,
+      reducedMotion = false,
+      tutorialMode = false,
+      onTutorialStep,
+      onTutorialBeforeStep,
+    }
   ) {
     this.abort();
     this._controller = new AbortController();
@@ -65,23 +80,62 @@ export class SortPlayer {
       onFrame(index, index);
 
       while (index < recording.steps.length) {
-        const { delayMs, stride } = getPlaybackSettings();
         const step = recording.steps[index];
+        const settings = getPlaybackSettings();
+        const inTutorial = Boolean(settings.tutorial ?? tutorialMode);
 
         if (step.type === STEP.DONE) {
-          index = recording.steps.length;
-          onFrame(index, index);
+          onFrame(recording.steps.length, recording.steps.length);
+          if (inTutorial && onTutorialStep) {
+            try {
+              await onTutorialStep({ step, index, signal });
+            } catch (err) {
+              if (err instanceof DOMException && err.name === "AbortError") {
+                return this.paused ? "paused" : "aborted";
+              }
+              throw err;
+            }
+          }
           break;
         }
 
-        const nextIndex = Math.min(index + stride, recording.steps.length);
+        const nextIndex = index + 1;
+
+        if (inTutorial) {
+          if (onTutorialBeforeStep) {
+            try {
+              await onTutorialBeforeStep({ step, index, signal });
+            } catch (err) {
+              if (err instanceof DOMException && err.name === "AbortError") {
+                return this.paused ? "paused" : "aborted";
+              }
+              throw err;
+            }
+          }
+          onFrame(index, nextIndex);
+          if (onTutorialStep) {
+            try {
+              await onTutorialStep({ step, index, signal });
+            } catch (err) {
+              if (err instanceof DOMException && err.name === "AbortError") {
+                return this.paused ? "paused" : "aborted";
+              }
+              throw err;
+            }
+          }
+          index = nextIndex;
+          continue;
+        }
+
+        const stride = settings.stride;
+        const toIndex = Math.min(index + stride, recording.steps.length);
         const fromIndex = index;
-        index = nextIndex;
+        index = toIndex;
 
         onFrame(fromIndex, index);
 
-        const stepDelay = reducedMotion ? 0 : delayMs;
-        await delay(stepDelay, signal);
+        const stepDelay = reducedMotion ? 0 : settings.delayMs;
+        await playbackDelay(stepDelay, signal);
       }
 
       return "completed";

@@ -1,9 +1,18 @@
-/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, defaultSpeedPreset: number, maxFastPlaybackMs: number }>} */
+/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, tutorialCols: number, largeGridColsThreshold: number, tutorialStepMs: number, defaultSpeedPreset: number, mediumSpeedPreset: number, veryFastSpeedPreset: number, maxFastPlaybackMs: number }>} */
 export const CONFIG = {
   cols: 20,
   minCols: 5,
-  maxCols: 40,
-  defaultSpeedPreset: 2,
+  maxCols: 100,
+  tutorialCols: 5,
+  /** Above this size: hide Values, drop bubble/insertion/selection, default to Very fast. */
+  largeGridColsThreshold: 40,
+  /** Delay between non-key tutorial steps (compares/swaps without a tip). */
+  tutorialStepMs: 220,
+  defaultSpeedPreset: 0,
+  /** Speed preset index when leaving Tutorial via a larger grid size. */
+  mediumSpeedPreset: 3,
+  /** Speed preset index for grids larger than largeGridColsThreshold. */
+  veryFastSpeedPreset: 5,
   maxFastPlaybackMs: 9500,
 };
 
@@ -12,6 +21,7 @@ export const CONFIG = {
  * @type {Readonly<{ label: string, targetMs: number }[]>}
  */
 export const SPEED_PRESETS = [
+  { label: "Tutorial", tutorial: true },
   { label: "Very slow", targetMs: 90000 },
   { label: "Slow", targetMs: 45000 },
   { label: "Medium", targetMs: 20000 },
@@ -20,11 +30,14 @@ export const SPEED_PRESETS = [
 ];
 
 /**
- * @param {{ targetMs: number }} preset
+ * @param {{ targetMs?: number, tutorial?: boolean }} preset
  * @param {number} animatedStepCount Compare/swap steps (not "done")
- * @returns {{ delayMs: number, stride: number }}
+ * @returns {{ delayMs: number, stride: number, tutorial?: boolean }}
  */
 export function getPlaybackSettings(preset, animatedStepCount) {
+  if (preset.tutorial) {
+    return { delayMs: 0, stride: 1, tutorial: true };
+  }
   if (animatedStepCount <= 0) {
     return { delayMs: 16, stride: 1 };
   }

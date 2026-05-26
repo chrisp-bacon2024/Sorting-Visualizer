@@ -61,7 +61,7 @@
                 class="control__input control__input--range"
                 type="range"
                 min="5"
-                max="40"
+                max="100"
                 value="20"
               />
               <output id="grid-cols-value" class="control__value" for="grid-cols"
@@ -82,31 +82,80 @@
             <span class="control__value control__value--spacer" aria-hidden="true"></span>
           </label>
 
-          <div class="control control--actions" aria-label="Sort actions">
-            <span class="control__label control__label--hidden" aria-hidden="true"
-              >Actions</span
-            >
-            <div class="control__field controls__buttons">
-              <button
-                id="shuffle"
-                class="btn btn--secondary"
-                type="button"
-                aria-label="Shuffle colors"
-              >
-                Shuffle
-              </button>
-              <button
-                id="play-toggle"
-                class="btn btn--primary"
-                type="button"
-                aria-label="Start sorting"
-              >
-                Start
-              </button>
+          <label class="control control--hue" for="show-hue">
+            <span class="control__label">Values</span>
+            <div class="control__field control__field--checkbox">
+              <input
+                id="show-hue"
+                class="control__checkbox"
+                type="checkbox"
+                checked
+                aria-label="Show hue values on cells"
+              />
             </div>
             <span class="control__value control__value--spacer" aria-hidden="true"></span>
+          </label>
+
+          <div class="controls__actions" aria-label="Sort actions">
+            <div class="control control--action">
+              <span class="control__label control__label--hidden" aria-hidden="true"
+                >Actions</span
+              >
+              <div class="control__field">
+                <button
+                  id="shuffle"
+                  class="btn btn--secondary"
+                  type="button"
+                  aria-label="Shuffle colors"
+                >
+                  Shuffle
+                </button>
+              </div>
+              <span class="control__value control__value--spacer" aria-hidden="true"></span>
+            </div>
+            <div class="control control--action">
+              <span class="control__label control__label--hidden" aria-hidden="true"
+                >Play</span
+              >
+              <div class="control__field">
+                <button
+                  id="play-toggle"
+                  class="btn btn--icon btn--playback btn--primary"
+                  type="button"
+                  data-playback="idle"
+                  aria-label="Start sorting"
+                  title="Start sorting"
+                >
+                  <svg
+                    class="btn__icon btn__icon--play"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path d="M8 5v14l11-7L8 5z" />
+                  </svg>
+                  <svg
+                    class="btn__icon btn__icon--pause"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                    aria-hidden="true"
+                  >
+                    <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
+                  </svg>
+                </button>
+              </div>
+              <span class="control__value control__value--spacer" aria-hidden="true"></span>
+            </div>
           </div>
         </div>
+
+        <p id="algorithm-description" class="controls__description"></p>
 
         <div class="controls__playback">
           <label class="control control--playback" for="playback">
@@ -131,8 +180,55 @@
       </section>
 
       <main class="main">
-        <div class="canvas-container">
-          <canvas id="canvas" aria-label="Color grid canvas"></canvas>
+        <div class="main__stage">
+          <aside
+            id="heap-tree-panel"
+            class="heap-tree-panel"
+            hidden
+            aria-label="Heap tree view"
+          >
+            <canvas id="heap-tree-canvas" aria-hidden="true"></canvas>
+          </aside>
+          <aside
+            id="quick-strip-panel"
+            class="quick-strip-panel"
+            hidden
+            aria-label="Quick sort partition view"
+          >
+            <canvas id="quick-strip-canvas" aria-hidden="true"></canvas>
+          </aside>
+          <aside
+            id="merge-panel"
+            class="merge-panel"
+            hidden
+            aria-label="Merge sort runs view"
+          >
+            <canvas id="merge-panel-canvas" aria-hidden="true"></canvas>
+          </aside>
+          <aside
+            id="tim-panel"
+            class="tim-panel"
+            hidden
+            aria-label="Tim sort runs view"
+          >
+            <canvas id="tim-panel-canvas" aria-hidden="true"></canvas>
+          </aside>
+          <div class="canvas-container">
+            <canvas id="canvas" aria-label="Color grid canvas"></canvas>
+          </div>
+          <aside
+            id="tutorial-bar"
+            class="tutorial-panel"
+            hidden
+            aria-live="polite"
+          >
+            <div class="tutorial-panel__meta">
+              <span id="tutorial-tag" class="tutorial-panel__tag"></span>
+              <span id="tutorial-step" class="tutorial-panel__step"></span>
+            </div>
+            <p id="tutorial-text" class="tutorial-panel__text"></p>
+            <span class="tutorial-panel__hint">Space — next key step</span>
+          </aside>
         </div>
         <p id="status" class="status" aria-live="polite">Loading…</p>
       </main>

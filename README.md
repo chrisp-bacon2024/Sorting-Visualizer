@@ -19,7 +19,7 @@ The site should publish at the live demo URL above after the workflow succeeds.
 
 - 7 algorithms: Bubble, Insertion, Selection, Heap, Quick, Merge, Tim Sort
 - Adjustable grid size (5×5–40×40)
-- Recorded playback with scrubber, pause/resume, and speed presets
+- Recorded playback with scrubber, pause/resume, and speed presets (including **Tutorial** with step explanations)
 - Benchmark mode: same shuffle for every algorithm; step count and record time per run
 
 ## Run locally
