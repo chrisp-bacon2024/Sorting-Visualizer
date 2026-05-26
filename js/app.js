@@ -26,6 +26,7 @@ import {
 import {
   animatedStepCount,
   formatAlgoOptionLabel,
+  formatAlgoStats,
   formatPlaybackLabel,
   toDisplayPlaybackIndex,
   toInternalPlaybackIndex,
@@ -1284,7 +1285,7 @@ export function createApp() {
       const algo = getAlgorithm(algorithmSelect.value);
       const result = algo ? algoResults.get(algo.id) : undefined;
       const statsText = result
-        ? ` — ${result.steps.toLocaleString()} steps · ${result.recordMs} ms`
+        ? ` — ${formatAlgoStats(result.steps, result.recordMs)}`
         : "";
       setIdle(
         `Sorted by hue (${algo?.label ?? "sort"}${statsText}) — Start to replay`
