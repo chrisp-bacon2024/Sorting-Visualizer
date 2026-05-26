@@ -38,7 +38,7 @@ An interactive, browser-based sorting visualizer that sorts a grid of random col
 
 ### Visualization & playback
 
-- **Hue-based sorting** — cells are colored by hue; the goal is a smooth rainbow left-to-right.
+- **Hue-based sorting** — cells are sorted by hue; the goal is a smooth rainbow.
 - **Recorded playback** — each run is captured once, then replayed with pause, resume, and a step scrubber (incremental seek + checkpoints for long recordings).
 - **Speed presets** — Tutorial, Very slow → Very fast; playback time is budgeted so long runs still finish in a reasonable wall-clock time.
 - **Optional cell values** — show numeric hue labels (hidden automatically on large grids for clarity).
