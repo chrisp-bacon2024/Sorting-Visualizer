@@ -45,6 +45,28 @@ body {
   font-size: var(--font-size-sm);
 }
 
+.header__links {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+}
+
+.header__repo-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.header__repo-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.header__repo-link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .main {
   display: flex;
   flex: 1;
