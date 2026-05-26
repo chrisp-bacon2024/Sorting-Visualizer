@@ -6,7 +6,7 @@ import { STEP } from "../algorithms/types.js";
 
 const BUBBLING = {
   title: "Bubbling",
-  body: "Larger hues swap right along the row.",
+  body: "Larger hues swap to be higher in the array.",
 };
 
 const NO_SWAP_PASS = {

@@ -494,7 +494,6 @@ export function createApp() {
   function syncTutorialChrome({ deferGridRestore = false } = {}) {
     const tutorial = isTutorialMode();
     tutorialPanel.setEnabled(tutorial);
-    colsInput.disabled = tutorial;
     syncTutorialSidePanels();
 
     if (tutorial) {
@@ -519,7 +518,8 @@ export function createApp() {
 
   const view = new CanvasView(canvas, (width, height) => {
     if (!grid) {
-      grid = new Grid(CONFIG.cols, width, height);
+      const cols = Number(colsInput.value) || CONFIG.cols;
+      grid = new Grid(cols, width, height);
       benchmarkSnapshot = grid.captureState();
       invalidateRecording();
       refreshAlgorithmOptions();
@@ -852,7 +852,12 @@ export function createApp() {
       stopPlayback({ skipStatus: true });
     }
 
+    if (cols > 10) {
+      showHueInput.checked = false;
+    }
+
     grid?.setCols(cols);
+    syncShowHueValues();
     resetBenchmarkInput();
     animator.requestFrame();
     statusEl.textContent = `${cols}×${cols} grid`;
@@ -1187,7 +1192,27 @@ export function createApp() {
     colsValue.textContent = colsInput.value;
   }
 
-  colsInput.addEventListener("input", applyGridSize);
+  function onGridColsInput() {
+    const cols = Number(colsInput.value);
+
+    if (isTutorialMode() && cols > CONFIG.tutorialCols) {
+      if (appState !== STATE.IDLE) {
+        stopPlayback({ skipStatus: true });
+      }
+      colsBeforeTutorial = null;
+      speedSelect.value = String(CONFIG.mediumSpeedPreset);
+      syncTutorialChrome();
+      applyGridSize();
+      if (appState === STATE.IDLE) {
+        statusEl.textContent = `${cols}×${cols} grid — press Start to sort`;
+      }
+      return;
+    }
+
+    applyGridSize();
+  }
+
+  colsInput.addEventListener("input", onGridColsInput);
 
   showHueInput.addEventListener("change", () => {
     syncShowHueValues();
@@ -1311,5 +1336,8 @@ export function createApp() {
   syncTutorialChrome();
   syncColsLabel();
   updatePlaybackSlider();
-  setIdle(`${CONFIG.cols}×${CONFIG.cols} grid — press Start to sort`);
+  const initialCols = grid?.cols ?? (Number(colsInput.value) || CONFIG.cols);
+  statusEl.textContent = isTutorialMode()
+    ? `Tutorial — ${CONFIG.tutorialCols}×${CONFIG.tutorialCols} grid, press Start`
+    : `${initialCols}×${initialCols} grid — press Start to sort`;
 }

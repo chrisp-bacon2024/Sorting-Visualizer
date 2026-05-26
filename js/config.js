@@ -1,4 +1,4 @@
-/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, tutorialCols: number, tutorialStepMs: number, defaultSpeedPreset: number, maxFastPlaybackMs: number }>} */
+/** @type {Readonly<{ cols: number, minCols: number, maxCols: number, tutorialCols: number, tutorialStepMs: number, defaultSpeedPreset: number, mediumSpeedPreset: number, maxFastPlaybackMs: number }>} */
 export const CONFIG = {
   cols: 20,
   minCols: 5,
@@ -6,7 +6,9 @@ export const CONFIG = {
   tutorialCols: 5,
   /** Delay between non-key tutorial steps (compares/swaps without a tip). */
   tutorialStepMs: 220,
-  defaultSpeedPreset: 3,
+  defaultSpeedPreset: 0,
+  /** Speed preset index when leaving Tutorial via a larger grid size. */
+  mediumSpeedPreset: 3,
   maxFastPlaybackMs: 9500,
 };
 
