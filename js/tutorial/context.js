@@ -11,7 +11,7 @@ export function createTutorialContext() {
   return {
     stepCount: 0,
     cols: 20,
-    bubble: { pass: 1, lastJ: -1 },
+    bubble: { pass: 1, lastJ: -1, swappedThisPass: false },
     insertion: { activeJ: -1 },
     selection: { passStart: 0 },
     heap: { heapEnd: -1, buildDone: false },

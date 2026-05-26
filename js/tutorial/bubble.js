@@ -3,7 +3,16 @@
 /** @typedef {import('../algorithms/types.js').SortStep} SortStep */
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { STEP } from "../algorithms/types.js";
-import { cellPhrase } from "./helpers.js";
+
+const BUBBLING = {
+  title: "Bubbling",
+  body: "Larger hues swap right along the row.",
+};
+
+const NO_SWAP_PASS = {
+  title: "Sorted",
+  body: "No swaps this pass—the grid is sorted by hue.",
+};
 
 /** @returns {TutorialMessage} */
 export function getOutro() {
@@ -14,21 +23,13 @@ export function getOutro() {
 }
 
 /**
- * @param {Cell[]} cells
- * @param {number} i
- * @param {number} j
+ * Last compare in a pass uses step.j === j_inner + 1 (see algorithms/bubble.js).
+ * @param {number} n
+ * @param {number} pass
+ * @param {number} stepJ
  */
-function compareLine(cells, i, j) {
-  return `Compared ${cellPhrase(cells[i])} and ${cellPhrase(cells[j])}.`;
-}
-
-/**
- * @param {Cell[]} cells
- * @param {number} i
- * @param {number} j
- */
-function swapLine(cells, i, j) {
-  return `Swapped ${cellPhrase(cells[i])} and ${cellPhrase(cells[j])}.`;
+function isLastCompareOfPass(n, pass, stepJ) {
+  return stepJ === n - pass;
 }
 
 /**
@@ -38,41 +39,39 @@ function swapLine(cells, i, j) {
  * @returns {TutorialMessage | null}
  */
 export function onStep(step, ctx, cells) {
-  const state = /** @type {{ pass: number, lastJ: number }} */ (ctx.bubble);
+  const state = /** @type {{
+    pass: number,
+    lastJ: number,
+    swappedThisPass: boolean,
+  }} */ (ctx.bubble);
+
+  const n = cells.length;
 
   if (step.type === STEP.COMPARE) {
-    if (step.j < state.lastJ) state.pass += 1;
+    if (step.j < state.lastJ) {
+      state.pass += 1;
+    }
     state.lastJ = step.j;
 
-    if (step.j === 0) {
+    if (step.i === 0) {
+      state.swappedThisPass = false;
       return {
         title: `Pass ${state.pass}`,
-        body: `New pass—scanning neighbors left to right.`,
+        body: "Scanning neighbors left to right.",
         pause: true,
       };
     }
 
-    return {
-      title: "Compare",
-      body: compareLine(cells, step.i, step.j),
-      pause: false,
-    };
+    if (isLastCompareOfPass(n, state.pass, step.j) && !state.swappedThisPass) {
+      return { ...NO_SWAP_PASS, pause: true };
+    }
+
+    return { ...BUBBLING, pause: false };
   }
 
   if (step.type === STEP.SWAP) {
-    const n = cells.length;
-    const finalSlot = n - state.pass;
-    const placedAt = step.j;
-    const outcome =
-      placedAt === finalSlot
-        ? "The larger hue is now in its final position."
-        : "The larger hue is closer to its sorted position.";
-
-    return {
-      title: placedAt === finalSlot ? "In place" : "Swap",
-      body: `${swapLine(cells, step.i, step.j)} ${outcome}`,
-      pause: true,
-    };
+    state.swappedThisPass = true;
+    return { ...BUBBLING, pause: false };
   }
 
   return null;

@@ -3,7 +3,7 @@
 /** @typedef {import('../algorithms/types.js').SortStep} SortStep */
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { STEP } from "../algorithms/types.js";
-import { cellPhrase } from "./helpers.js";
+import { hueColorName } from "./helpers.js";
 
 const FINDING = "Finding its place in the sorted prefix…";
 
@@ -12,9 +12,10 @@ const FINDING = "Finding its place in the sorted prefix…";
  * @returns {TutorialMessage}
  */
 function insertedMessage(cell) {
+  const color = hueColorName(cell.hue);
   return {
     title: "Inserted",
-    body: `${cellPhrase(cell)} is in place with the sorted cells to its left—it will not shift further this insert.`,
+    body: `The ${color} cell's hue is greater than any cells that are before it. It has finished inserting.`,
     pause: true,
     focusIndex: cell.index,
   };
