@@ -166,6 +166,16 @@ export function createApp() {
   let pendingPlaybackRestart = null;
   /** @type {number} Bumped to ignore stale playRecording completions */
   let playbackSession = 0;
+  /** @type {number} */
+  let scrubRafId = 0;
+  /** @type {number | null} */
+  let pendingScrubInternal = null;
+  /** @type {number | null} */
+  let pendingScrubDisplay = null;
+  /** @type {boolean} */
+  let tutorialScrubTipPending = false;
+  /** @type {ReturnType<typeof setTimeout> | 0} */
+  let tutorialScrubTipTimeout = 0;
 
   function isTutorialMode() {
     const preset =
@@ -455,8 +465,7 @@ export function createApp() {
         0,
         Math.min(resumeIndex, recording.steps.length)
       );
-      seek(playbackIndex);
-      lastRenderedIndex = playbackIndex;
+      seek(playbackIndex, { forceFullSeek: true });
       updatePlaybackSlider();
     }
 
@@ -466,6 +475,31 @@ export function createApp() {
   /**
    * @param {number} displayIndex
    */
+  function scheduleTutorialScrubTip() {
+    tutorialScrubTipPending = true;
+    if (tutorialScrubTipTimeout) {
+      clearTimeout(tutorialScrubTipTimeout);
+    }
+    tutorialScrubTipTimeout = setTimeout(() => {
+      tutorialScrubTipTimeout = 0;
+      if (!tutorialScrubTipPending) return;
+      tutorialScrubTipPending = false;
+      if (scrubRafId) {
+        cancelAnimationFrame(scrubRafId);
+        flushScrubFrame();
+      }
+      showTutorialTipAt(playbackIndex);
+    }, 120);
+  }
+
+  function clearTutorialScrubTipSchedule() {
+    if (tutorialScrubTipTimeout) {
+      clearTimeout(tutorialScrubTipTimeout);
+      tutorialScrubTipTimeout = 0;
+    }
+    tutorialScrubTipPending = false;
+  }
+
   function applyTutorialScrub(displayIndex) {
     if (!recording || !grid || !isTutorialMode()) return;
 
@@ -475,23 +509,32 @@ export function createApp() {
 
     interruptTutorialPlayback();
 
-    playbackIndex = toInternalPlaybackIndex(recording, clamped);
-    seek(playbackIndex);
-    lastRenderedIndex = playbackIndex;
     playbackInput.value = String(clamped);
-    const recordMs = algoResults.get(algorithmSelect.value)?.recordMs;
-    playbackValue.textContent = formatPlaybackLabel(
-      clamped,
-      total,
-      recordMs
-    );
-    showTutorialTipAt(playbackIndex);
+    scheduleScrubSeek(clamped);
+    scheduleTutorialScrubTip();
 
     if (wasRunning) {
       appState = STATE.PAUSED;
       setControlsPlayback(true, true);
       statusEl.textContent = `Tutorial — step ${clamped} / ${total} (Resume or scrub)`;
     }
+  }
+
+  function finishScrubbing() {
+    if (scrubRafId) {
+      cancelAnimationFrame(scrubRafId);
+      flushScrubFrame();
+    }
+    isScrubbing = false;
+    if (tutorialScrubTipPending) {
+      if (tutorialScrubTipTimeout) {
+        clearTimeout(tutorialScrubTipTimeout);
+        tutorialScrubTipTimeout = 0;
+      }
+      tutorialScrubTipPending = false;
+      showTutorialTipAt(playbackIndex);
+    }
+    updatePlaybackSlider();
   }
 
   /**
@@ -869,18 +912,83 @@ export function createApp() {
     playbackInput.max = String(max);
     playbackInput.value = String(displayIndex);
     playbackInput.disabled = false;
+    updatePlaybackValue(displayIndex, max, recordMs);
+  }
+
+  /**
+   * @param {number} displayIndex
+   * @param {number} totalSteps
+   * @param {number | undefined} recordMs
+   */
+  function updatePlaybackValue(displayIndex, totalSteps, recordMs) {
     playbackValue.textContent = formatPlaybackLabel(
       displayIndex,
-      max,
+      totalSteps,
       recordMs
     );
   }
 
-  function seek(index) {
+  function cancelScrubFrame() {
+    if (scrubRafId) {
+      cancelAnimationFrame(scrubRafId);
+      scrubRafId = 0;
+    }
+    pendingScrubInternal = null;
+    pendingScrubDisplay = null;
+  }
+
+  function flushScrubFrame() {
+    scrubRafId = 0;
+    if (!recording || !grid || pendingScrubInternal == null) {
+      pendingScrubInternal = null;
+      pendingScrubDisplay = null;
+      return;
+    }
+
+    const target = pendingScrubInternal;
+    const display =
+      pendingScrubDisplay ?? toDisplayPlaybackIndex(recording, target);
+    pendingScrubInternal = null;
+    pendingScrubDisplay = null;
+
+    seek(target, { syncSlider: false });
+    const max = animatedStepCount(recording);
+    const recordMs = algoResults.get(algorithmSelect.value)?.recordMs;
+    updatePlaybackValue(display, max, recordMs);
+  }
+
+  /**
+   * @param {number} displayIndex
+   */
+  function scheduleScrubSeek(displayIndex) {
+    if (!recording) return;
+    pendingScrubInternal = toInternalPlaybackIndex(recording, displayIndex);
+    pendingScrubDisplay = displayIndex;
+    if (!scrubRafId) {
+      scrubRafId = requestAnimationFrame(flushScrubFrame);
+    }
+  }
+
+  /**
+   * @param {number} index
+   * @param {{ syncSlider?: boolean, forceFullSeek?: boolean }} [options]
+   */
+  function seek(index, options = {}) {
     if (!grid || !recording) return;
-    playbackIndex = seekToStep(grid, recording, index);
+
+    const syncSlider = options.syncSlider !== false;
+    const target = Math.max(0, Math.min(index, recording.steps.length));
+
+    if (!options.forceFullSeek && target >= lastRenderedIndex) {
+      playbackIndex = seekForward(grid, recording, lastRenderedIndex, target);
+    } else {
+      playbackIndex = seekToStep(grid, recording, target);
+    }
     lastRenderedIndex = playbackIndex;
-    updatePlaybackSlider();
+
+    if (syncSlider) {
+      updatePlaybackSlider();
+    }
     syncQuickTutorialGridHighlights();
     animator.requestFrame();
   }
@@ -902,6 +1010,8 @@ export function createApp() {
     tutorialContext = null;
     sortPlayer.abort();
     appState = STATE.IDLE;
+    cancelScrubFrame();
+    clearTutorialScrubTipSchedule();
     isScrubbing = false;
     setControlsPlayback(false);
   }
@@ -1326,13 +1436,12 @@ export function createApp() {
       return;
     }
 
-    playbackIndex = toInternalPlaybackIndex(recording, displayIndex);
-    seek(playbackIndex);
+    scheduleScrubSeek(displayIndex);
     if (appState === STATE.RUNNING) {
       appState = STATE.PAUSED;
       setControlsPlayback(true, true);
       const total = animatedStepCount(recording);
-      statusEl.textContent = `Paused at step ${toDisplayPlaybackIndex(recording, playbackIndex)} / ${total}`;
+      statusEl.textContent = `Paused at step ${displayIndex} / ${total}`;
     }
   });
 
@@ -1352,13 +1461,9 @@ export function createApp() {
     );
   }
 
-  playbackInput.addEventListener("pointerup", () => {
-    isScrubbing = false;
-  });
+  playbackInput.addEventListener("pointerup", finishScrubbing);
 
-  playbackInput.addEventListener("pointercancel", () => {
-    isScrubbing = false;
-  });
+  playbackInput.addEventListener("pointercancel", finishScrubbing);
 
   shuffleBtn.addEventListener("click", () => {
     if (appState !== STATE.IDLE) return;

@@ -4,8 +4,17 @@
 /** @typedef {{ hue: number, color: string }} CellSnapshot */
 import { STEP } from "../algorithms/types.js";
 
+/** Minimum animated steps before building rewind checkpoints for scrubbing. */
+const CHECKPOINT_MIN_STEPS = 400;
+
 /**
- * @typedef {{ snapshot: CellSnapshot[], steps: SortStep[], algorithmId: string }} SortRecording
+ * @typedef {{
+ *   snapshot: CellSnapshot[],
+ *   steps: SortStep[],
+ *   algorithmId: string,
+ *   checkpoints?: CellSnapshot[][],
+ *   checkpointInterval?: number,
+ * }} SortRecording
  */
 
 /**
@@ -86,7 +95,13 @@ export function seekForward(grid, recording, fromIndex, toIndex) {
   }
 
   for (let i = fromIndex; i < clamped; i++) {
-    applySingleStep(grid, recording.steps[i]);
+    mutateStep(grid, recording.steps[i]);
+  }
+
+  if (clamped === 0) {
+    grid.clearHighlights();
+  } else {
+    showStepHighlight(grid, recording.steps[clamped - 1]);
   }
 
   return clamped;
@@ -100,10 +115,29 @@ export function seekForward(grid, recording, fromIndex, toIndex) {
  */
 export function seekToStep(grid, recording, stepIndex) {
   const clamped = Math.max(0, Math.min(stepIndex, recording.steps.length));
-  restoreGridState(grid, recording.snapshot);
+  const interval = recording.checkpointInterval ?? 0;
+  const checkpoints = recording.checkpoints;
 
-  for (let i = 0; i < clamped; i++) {
-    mutateStep(grid, recording.steps[i]);
+  if (
+    clamped > 0 &&
+    interval > 0 &&
+    checkpoints &&
+    checkpoints.length > 0
+  ) {
+    const checkpointIndex = Math.min(
+      Math.floor(clamped / interval),
+      checkpoints.length - 1
+    );
+    const startStep = checkpointIndex * interval;
+    restoreGridState(grid, checkpoints[checkpointIndex]);
+    for (let i = startStep; i < clamped; i++) {
+      mutateStep(grid, recording.steps[i]);
+    }
+  } else {
+    restoreGridState(grid, recording.snapshot);
+    for (let i = 0; i < clamped; i++) {
+      mutateStep(grid, recording.steps[i]);
+    }
   }
 
   if (clamped === 0) {
@@ -113,6 +147,33 @@ export function seekToStep(grid, recording, stepIndex) {
   }
 
   return clamped;
+}
+
+/**
+ * @param {Grid} grid
+ * @param {CellSnapshot[]} snapshot
+ * @param {SortStep[]} steps
+ * @returns {{ checkpoints?: CellSnapshot[][], checkpointInterval: number }}
+ */
+function buildSeekCheckpoints(grid, snapshot, steps) {
+  if (steps.length < CHECKPOINT_MIN_STEPS) {
+    return { checkpointInterval: 0 };
+  }
+
+  const interval = Math.max(100, Math.floor(steps.length / 50));
+  /** @type {CellSnapshot[][]} */
+  const checkpoints = [snapshot];
+
+  restoreGridState(grid, snapshot);
+  for (let i = 0; i < steps.length; i++) {
+    mutateStep(grid, steps[i]);
+    if ((i + 1) % interval === 0) {
+      checkpoints.push(captureGridState(grid));
+    }
+  }
+  restoreGridState(grid, snapshot);
+
+  return { checkpoints, checkpointInterval: interval };
 }
 
 /**
@@ -138,5 +199,16 @@ export function recordSort(grid, sortFn, compare, algorithmId) {
 
   restoreGridState(grid, snapshot);
 
-  return { snapshot, steps, algorithmId };
+  const { checkpoints, checkpointInterval } = buildSeekCheckpoints(
+    grid,
+    snapshot,
+    steps
+  );
+
+  return {
+    snapshot,
+    steps,
+    algorithmId,
+    ...(checkpoints ? { checkpoints, checkpointInterval } : {}),
+  };
 }
