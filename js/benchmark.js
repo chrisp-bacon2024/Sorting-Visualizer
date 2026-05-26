@@ -2,7 +2,7 @@ import { STEP } from "./algorithms/types.js";
 
 /**
  * @typedef {import('./sort/sortSession.js').SortRecording} SortRecording
- * @typedef {{ recording: SortRecording, steps: number, recordMs: number }} AlgoBenchmarkResult
+ * @typedef {{ recording: SortRecording, steps: number, recordMs: number, timRecordingVersion?: number }} AlgoBenchmarkResult
  */
 
 /**

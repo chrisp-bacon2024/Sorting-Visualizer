@@ -9,6 +9,7 @@ import { CanvasView } from "./visualize/canvasView.js";
 import { HeapTreeView } from "./visualize/heapTreeView.js";
 import { QuickStripView } from "./visualize/quickStripView.js";
 import { MergePanelView } from "./visualize/mergePanelView.js";
+import { TimPanelView } from "./visualize/timPanelView.js";
 import { Animator } from "./visualize/animator.js";
 import { SortPlayer, playbackDelay } from "./visualize/sortPlayer.js";
 import {
@@ -37,8 +38,10 @@ import {
 import { getHeapSize } from "./tutorial/heap.js";
 import { getQuickStripState, trackQuickStep } from "./tutorial/quick.js";
 import { getMergePanelState, trackMergeStep } from "./tutorial/merge.js";
+import { getTimPanelState, trackTimStep } from "./tutorial/timsort.js";
 import { TutorialPanel } from "./tutorial/tutorialPanel.js";
 import { STEP } from "./algorithms/types.js";
+import { TIM_RECORDING_VERSION } from "./algorithms/timsort.js";
 
 const STATE = {
   IDLE: "idle",
@@ -72,6 +75,12 @@ export function createApp() {
   );
   const mergePanelCanvas = /** @type {HTMLCanvasElement} */ (
     document.querySelector("#merge-panel-canvas")
+  );
+  const timPanelEl = /** @type {HTMLElement} */ (
+    document.querySelector("#tim-panel")
+  );
+  const timPanelCanvas = /** @type {HTMLCanvasElement} */ (
+    document.querySelector("#tim-panel-canvas")
   );
   const colsInput = /** @type {HTMLInputElement} */ (
     document.querySelector("#grid-cols")
@@ -169,6 +178,10 @@ export function createApp() {
     return isTutorialMode() && algorithmSelect.value === "merge";
   }
 
+  function shouldShowTimPanel() {
+    return isTutorialMode() && algorithmSelect.value === "timsort";
+  }
+
   /** Range anchor, pivot, scan, and placed highlights on the main grid. */
   function syncQuickTutorialGridHighlights() {
     if (!grid || !shouldShowQuickStrip() || !tutorialContext || sortComplete) {
@@ -203,6 +216,7 @@ export function createApp() {
     const showHeap = shouldShowHeapTree();
     const showQuick = shouldShowQuickStrip();
     const showMerge = shouldShowMergePanel();
+    const showTim = shouldShowTimPanel();
 
     if (heapTreePanel) {
       heapTreePanel.hidden = !showHeap;
@@ -225,7 +239,14 @@ export function createApp() {
       }
     }
 
-    if (showHeap || showQuick || showMerge) {
+    if (timPanelEl) {
+      timPanelEl.hidden = !showTim;
+      if (showTim && timPanelView) {
+        timPanelView.resize();
+      }
+    }
+
+    if (showHeap || showQuick || showMerge || showTim) {
       animator.requestFrame();
     }
   }
@@ -275,6 +296,9 @@ export function createApp() {
     }
     if (mergePanelView && shouldShowMergePanel()) {
       mergePanelView.resize();
+    }
+    if (timPanelView && shouldShowTimPanel()) {
+      timPanelView.resize();
     }
     animator.requestFrame();
   }
@@ -512,6 +536,9 @@ export function createApp() {
   const mergePanelView = mergePanelCanvas
     ? new MergePanelView(mergePanelCanvas)
     : null;
+  const timPanelView = timPanelCanvas
+    ? new TimPanelView(timPanelCanvas)
+    : null;
 
   function syncShowHueValues() {
     if (grid) {
@@ -525,6 +552,9 @@ export function createApp() {
     }
     if (mergePanelView) {
       mergePanelView.showHueValues = showHueInput.checked;
+    }
+    if (timPanelView) {
+      timPanelView.showHueValues = showHueInput.checked;
     }
   }
 
@@ -544,6 +574,12 @@ export function createApp() {
       mergePanelView.render(
         grid.cells,
         getMergePanelState(tutorialContext, grid.cells, sortComplete)
+      );
+    }
+    if (timPanelView && shouldShowTimPanel()) {
+      timPanelView.render(
+        grid.cells,
+        getTimPanelState(tutorialContext, grid.cells, sortComplete)
       );
     }
   }
@@ -906,6 +942,20 @@ export function createApp() {
     );
   }
 
+  function timRecordingNeedsRefresh(
+    /** @type {import('./sort/sortSession.js').SortRecording} */ rec,
+    /** @type {import('./benchmark.js').AlgoBenchmarkResult | undefined} */ cached
+  ) {
+    if (cached?.timRecordingVersion !== TIM_RECORDING_VERSION) {
+      return true;
+    }
+    return rec.steps.some(
+      (s) =>
+        (s.type === STEP.COMPARE || s.type === STEP.SWAP) &&
+        !(("merge" in s && s.merge) || ("tim" in s && s.tim))
+    );
+  }
+
   function ensureRecording() {
     if (!grid || !benchmarkSnapshot) return null;
 
@@ -915,6 +965,14 @@ export function createApp() {
       cached &&
       algoId === "merge" &&
       mergeRecordingNeedsRefresh(cached.recording)
+    ) {
+      algoResults.delete(algoId);
+      cached = undefined;
+    }
+    if (
+      cached &&
+      algoId === "timsort" &&
+      timRecordingNeedsRefresh(cached.recording, cached)
     ) {
       algoResults.delete(algoId);
       cached = undefined;
@@ -936,7 +994,14 @@ export function createApp() {
     const recordMs = Math.round(performance.now() - startMs);
     const steps = animatedStepCount(rec);
 
-    algoResults.set(algoId, { recording: rec, steps, recordMs });
+    algoResults.set(algoId, {
+      recording: rec,
+      steps,
+      recordMs,
+      ...(algoId === "timsort"
+        ? { timRecordingVersion: TIM_RECORDING_VERSION }
+        : {}),
+    });
     recording = rec;
     refreshAlgorithmOptions();
 
@@ -1001,6 +1066,9 @@ export function createApp() {
         }
         if (algoId === "merge" && step.type === STEP.DONE) {
           trackMergeStep(step, tutorialContext, grid.cells);
+        }
+        if (algoId === "timsort" && step.type === STEP.DONE) {
+          trackTimStep(step, tutorialContext, grid.cells);
         }
         const message =
           step?.type === STEP.DONE
@@ -1097,6 +1165,9 @@ export function createApp() {
       }
       if (mergePanelView && shouldShowMergePanel()) {
         mergePanelView.resize();
+      }
+      if (timPanelView && shouldShowTimPanel()) {
+        timPanelView.resize();
       }
       animator.requestFrame();
     }

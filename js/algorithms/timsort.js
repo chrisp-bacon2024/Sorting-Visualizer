@@ -1,6 +1,8 @@
 /** @typedef {import('./types.js').Cell} Cell */
 /** @typedef {import('./types.js').CompareFn} CompareFn */
 /** @typedef {import('./types.js').SortStep} SortStep */
+/** @typedef {import('./types.js').MergeMeta} MergeMeta */
+/** @typedef {import('./types.js').TimMeta} TimMeta */
 import { STEP } from "./types.js";
 
 /** @typedef {{ base: number, len: number }} Run */
@@ -44,16 +46,46 @@ export function* timSort(cells, compare) {
   yield { type: STEP.DONE };
 }
 
+/** Grids under this size cap minRun so multiple runs (and merges) appear on small boards. */
+const SMALL_GRID_MIN_RUN_CAP = 8;
+const SMALL_GRID_CELL_THRESHOLD = 100;
+
+/** Bump when minRun policy changes so cached timsort recordings are re-recorded. */
+export const TIM_RECORDING_VERSION = 1;
+
 /**
  * @param {number} n
  */
 function calcMinRun(n) {
   let r = 0;
-  while (n >= 32) {
-    r |= n & 1;
-    n >>= 1;
+  let x = n;
+  while (x >= 32) {
+    r |= x & 1;
+    x >>= 1;
   }
-  return n + r;
+  let minRun = x + r;
+  if (n < SMALL_GRID_CELL_THRESHOLD) {
+    minRun = Math.min(minRun, SMALL_GRID_MIN_RUN_CAP);
+  }
+  return Math.max(1, minRun);
+}
+
+/**
+ * @param {number} lo
+ * @param {number} hi
+ * @returns {TimMeta}
+ */
+function timRunMeta(lo, hi) {
+  return { phase: "run", lo, hi };
+}
+
+/**
+ * @param {number} lo
+ * @param {number} hi
+ * @returns {TimMeta}
+ */
+function timInsertMeta(lo, hi) {
+  return { phase: "insert", lo, hi };
 }
 
 /**
@@ -66,14 +98,27 @@ function* findRun(cells, start, n, compare) {
   if (start >= n - 1) return 1;
 
   let end = start + 1;
+  const runLo = start;
 
   if (compare(cells[end], cells[start]) < 0) {
     while (end < n && compare(cells[end], cells[end - 1]) < 0) {
+      yield {
+        type: STEP.COMPARE,
+        i: end - 1,
+        j: end,
+        tim: timRunMeta(runLo, end),
+      };
       end++;
     }
-    yield* reverseRange(cells, start, end - 1);
+    yield* reverseRange(cells, start, end - 1, runLo, end - 1);
   } else {
     while (end < n && compare(cells[end], cells[end - 1]) >= 0) {
+      yield {
+        type: STEP.COMPARE,
+        i: end - 1,
+        j: end,
+        tim: timRunMeta(runLo, end),
+      };
       end++;
     }
   }
@@ -85,10 +130,17 @@ function* findRun(cells, start, n, compare) {
  * @param {Cell[]} cells
  * @param {number} lo
  * @param {number} hi
+ * @param {number} runLo
+ * @param {number} runHi
  */
-function* reverseRange(cells, lo, hi) {
+function* reverseRange(cells, lo, hi, runLo, runHi) {
   while (lo < hi) {
-    yield { type: STEP.SWAP, i: lo, j: hi };
+    yield {
+      type: STEP.SWAP,
+      i: lo,
+      j: hi,
+      tim: timRunMeta(runLo, runHi),
+    };
     lo++;
     hi--;
   }
@@ -101,12 +153,13 @@ function* reverseRange(cells, lo, hi) {
  * @param {CompareFn} compare
  */
 function* insertionSortRange(cells, lo, hi, compare) {
+  const tim = timInsertMeta(lo, hi);
   for (let i = lo + 1; i <= hi; i++) {
     let j = i;
     while (j > lo) {
-      yield { type: STEP.COMPARE, i: j - 1, j };
+      yield { type: STEP.COMPARE, i: j - 1, j, tim };
       if (compare(cells[j - 1], cells[j]) <= 0) break;
-      yield { type: STEP.SWAP, i: j - 1, j };
+      yield { type: STEP.SWAP, i: j - 1, j, tim };
       j--;
     }
   }
@@ -182,11 +235,12 @@ function indexOfCell(cells, cellId) {
  * @param {Cell[]} cells
  * @param {Cell} cell
  * @param {number} target
+ * @param {MergeMeta} merge
  */
-function* moveCellToIndex(cells, cell, target) {
+function* moveCellToIndex(cells, cell, target, merge) {
   const current = indexOfCell(cells, cell.id);
   if (current !== target) {
-    yield { type: STEP.SWAP, i: current, j: target };
+    yield { type: STEP.SWAP, i: current, j: target, merge };
   }
 }
 
@@ -210,26 +264,45 @@ function* merge(cells, aux, lo, mid, hi, compare) {
   while (left <= mid && right <= hi) {
     const leftIndex = indexOfCell(cells, aux[left].id);
     const rightIndex = indexOfCell(cells, aux[right].id);
-    yield { type: STEP.COMPARE, i: leftIndex, j: rightIndex };
+    yield {
+      type: STEP.COMPARE,
+      i: leftIndex,
+      j: rightIndex,
+      merge: { lo, mid, hi, left, right, k },
+    };
 
     if (compare(aux[left], aux[right]) <= 0) {
-      yield* moveCellToIndex(cells, aux[left], k);
+      yield* moveCellToIndex(cells, aux[left], k, {
+        lo,
+        mid,
+        hi,
+        left,
+        right,
+        k,
+      });
       left++;
     } else {
-      yield* moveCellToIndex(cells, aux[right], k);
+      yield* moveCellToIndex(cells, aux[right], k, {
+        lo,
+        mid,
+        hi,
+        left,
+        right,
+        k,
+      });
       right++;
     }
     k++;
   }
 
   while (left <= mid) {
-    yield* moveCellToIndex(cells, aux[left], k);
+    yield* moveCellToIndex(cells, aux[left], k, { lo, mid, hi, left, right, k });
     left++;
     k++;
   }
 
   while (right <= hi) {
-    yield* moveCellToIndex(cells, aux[right], k);
+    yield* moveCellToIndex(cells, aux[right], k, { lo, mid, hi, left, right, k });
     right++;
     k++;
   }

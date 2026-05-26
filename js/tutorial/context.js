@@ -35,7 +35,15 @@ export function createTutorialContext() {
       block: 0,
       finished: false,
     },
-    timsort: { inMerge: false, runKey: "" },
+    timsort: {
+      phase: "idle",
+      passKey: "",
+      block: 0,
+      shownBlock: -1,
+      runLo: 0,
+      runHi: -1,
+      finished: false,
+    },
   };
 }
 

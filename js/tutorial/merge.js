@@ -5,12 +5,12 @@
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { STEP } from "../algorithms/types.js";
 
-const READY_TO_MERGE = {
+export const READY_TO_MERGE = {
   title: "Ready to merge",
   body: "Left and Right are two sorted runs ready to be merged into one.",
 };
 
-const MERGING = {
+export const MERGING = {
   title: "Merging",
   body: "Merging left and right together from least to greatest.",
 };
