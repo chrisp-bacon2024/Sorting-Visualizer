@@ -27,184 +27,159 @@
       href="favicon_io/apple-touch-icon.png"
     />
     <link rel="manifest" href="favicon_io/site.webmanifest" />
-    <link rel="stylesheet" href="css/tokens.css" />
+    <!-- Shared theme from christophermpalmer.com: brand tokens (colours,
+         type, spacing) and components (.btn, .page-title, ...). Updating the
+         theme there updates this app too. When this app is hosted on the
+         portfolio, the build points this link at its own copy. -->
+    <link
+      rel="stylesheet"
+      href="https://christophermpalmer.com/shared/theme/v1/theme.css"
+    />
     <link rel="stylesheet" href="css/layout.css" />
     <link rel="stylesheet" href="css/components.css" />
   </head>
   <body>
     <div class="page">
       <header class="header">
-        <h1 class="header__title">Sorting Visualizer</h1>
+        <h1 class="page-title">Sorting Visualizer</h1>
         <p class="header__subtitle">Sort colors by hue</p>
-        <p class="header__links">
-          <a
-            class="header__repo-link"
-            href="https://github.com/chrisp-bacon2024/Sorting-Visualizer"
-            target="_blank"
-            rel="noopener noreferrer"
-            >View source on GitHub</a
-          >
-        </p>
       </header>
 
       <section class="controls" aria-label="Visualizer controls">
-        <div class="controls__row">
-          <label class="control control--algorithm" for="algorithm">
-            <span class="control__label">Algorithm</span>
-            <div class="control__field">
-              <div class="algo-picker">
-                <select
-                  id="algorithm"
-                  class="algo-picker__native"
-                  tabindex="-1"
-                  aria-hidden="true"
-                ></select>
-                <div class="algo-picker__anchor">
-                  <button
-                    type="button"
-                    id="algorithm-trigger"
-                    class="algo-picker__trigger control__input control__input--select"
-                    aria-haspopup="listbox"
-                    aria-expanded="false"
-                    aria-controls="algorithm-list"
-                  ></button>
-                  <ul
-                    id="algorithm-list"
-                    class="algo-picker__list"
-                    role="listbox"
-                    hidden
-                  ></ul>
+        <!-- One section, like the Pathfinding Visualizer's Terrain: two rows
+             that line up with the two playback rows. -->
+        <section class="controls__setup" aria-labelledby="setup-title">
+          <h2 id="setup-title" class="section-title">Sort</h2>
+          <div class="setup-rows">
+            <div class="setup-row">
+              <div class="setup-field">
+                <span id="algorithm-label" class="setup-label">Algorithm</span>
+                <div class="algo-picker">
+                  <select
+                    id="algorithm"
+                    class="algo-picker__native"
+                    tabindex="-1"
+                    aria-hidden="true"
+                  ></select>
+                  <div class="algo-picker__anchor">
+                    <button
+                      type="button"
+                      id="algorithm-trigger"
+                      class="algo-picker__trigger select control__input control__input--select"
+                      aria-labelledby="algorithm-label algorithm-trigger"
+                      aria-haspopup="listbox"
+                      aria-expanded="false"
+                      aria-controls="algorithm-list"
+                    ></button>
+                    <ul
+                      id="algorithm-list"
+                      class="algo-picker__list popover"
+                      role="listbox"
+                      hidden
+                    ></ul>
+                  </div>
+                  <span id="algorithm-measure" class="algorithm-measure" aria-hidden="true"></span>
                 </div>
-                <span id="algorithm-measure" class="algorithm-measure" aria-hidden="true"></span>
               </div>
-            </div>
-            <span class="control__value control__value--spacer" aria-hidden="true"></span>
-          </label>
-
-          <label class="control control--compact control--grid-size" for="grid-cols">
-            <span class="control__label">Grid size</span>
-            <div class="control__field">
-              <input
-                id="grid-cols"
-                class="control__input control__input--range"
-                type="range"
-                min="5"
-                max="100"
-                value="20"
-              />
-              <output id="grid-cols-value" class="control__value" for="grid-cols"
-                >20</output
-              >
-            </div>
-            <span class="control__value control__value--spacer" aria-hidden="true"></span>
-          </label>
-
-          <label class="control control--compact" for="speed-preset">
-            <span class="control__label">Speed</span>
-            <div class="control__field">
-              <select
-                id="speed-preset"
-                class="control__input control__input--select"
-              ></select>
-            </div>
-            <span class="control__value control__value--spacer" aria-hidden="true"></span>
-          </label>
-
-          <label class="control control--hue" for="show-hue">
-            <span class="control__label">Values</span>
-            <div class="control__field control__field--checkbox">
-              <input
-                id="show-hue"
-                class="control__checkbox"
-                type="checkbox"
-                checked
-                aria-label="Show hue values on cells"
-              />
-            </div>
-            <span class="control__value control__value--spacer" aria-hidden="true"></span>
-          </label>
-
-          <div class="controls__actions" aria-label="Sort actions">
-            <div class="control control--action">
-              <span class="control__label control__label--hidden" aria-hidden="true"
-                >Actions</span
-              >
-              <div class="control__field">
-                <button
-                  id="shuffle"
-                  class="btn btn--secondary"
-                  type="button"
-                  aria-label="Shuffle colors"
+              <div class="setup-field">
+                <label class="setup-label" for="grid-cols">Grid</label>
+                <input
+                  id="grid-cols"
+                  class="range grid-size-range"
+                  type="range"
+                  min="5"
+                  max="100"
+                  value="20"
+                />
+                <output id="grid-cols-value" class="grid-size-value" for="grid-cols"
+                  >20</output
                 >
-                  Shuffle
-                </button>
               </div>
-              <span class="control__value control__value--spacer" aria-hidden="true"></span>
             </div>
-            <div class="control control--action">
-              <span class="control__label control__label--hidden" aria-hidden="true"
-                >Play</span
+            <div class="setup-row">
+              <button
+                id="shuffle"
+                class="btn"
+                type="button"
+                aria-label="Shuffle colors"
               >
-              <div class="control__field">
-                <button
-                  id="play-toggle"
-                  class="btn btn--icon btn--playback btn--primary"
-                  type="button"
-                  data-playback="idle"
-                  aria-label="Start sorting"
-                  title="Start sorting"
-                >
-                  <svg
-                    class="btn__icon btn__icon--play"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path d="M8 5v14l11-7L8 5z" />
-                  </svg>
-                  <svg
-                    class="btn__icon btn__icon--pause"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    xmlns="http://www.w3.org/2000/svg"
-                    aria-hidden="true"
-                  >
-                    <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
-                  </svg>
-                </button>
-              </div>
-              <span class="control__value control__value--spacer" aria-hidden="true"></span>
+                Shuffle
+              </button>
+              <!-- A checkbox styled as a toggle button: navy while on. -->
+              <label class="btn toggle-btn control--hue">
+                <input
+                  id="show-hue"
+                  class="toggle-btn__input"
+                  type="checkbox"
+                  checked
+                  aria-label="Show hue values on cells"
+                />
+                Values
+              </label>
             </div>
           </div>
-        </div>
+        </section>
 
         <p id="algorithm-description" class="controls__description"></p>
 
-        <div class="controls__playback">
-          <label class="control control--playback" for="playback">
-            <span class="control__label">Playback</span>
-            <div class="control__field">
-              <input
-                id="playback"
-                class="control__input control__input--range"
-                type="range"
-                min="0"
-                max="0"
-                value="0"
-                disabled
-                aria-label="Scrub through sort steps"
-              />
+        <!-- Same layout as the Pathfinding Visualizer's playback: the slider,
+             then play and speed centred beneath it. -->
+        <section class="controls__playback" aria-labelledby="playback-title">
+          <h2 id="playback-title" class="section-title">Playback</h2>
+          <div class="playback-controls">
+            <input
+              id="playback"
+              class="range playback-slider"
+              type="range"
+              min="0"
+              max="0"
+              value="0"
+              disabled
+              aria-label="Scrub through sort steps"
+            />
+            <div class="playback-buttons">
+              <button
+                id="play-toggle"
+                class="btn btn--playback"
+                type="button"
+                data-playback="idle"
+                aria-label="Start sorting"
+                title="Start sorting"
+              >
+                <svg
+                  class="btn__icon btn__icon--play"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path d="M8 5v14l11-7L8 5z" />
+                </svg>
+                <svg
+                  class="btn__icon btn__icon--pause"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
+                </svg>
+              </button>
+              <select
+                id="speed-preset"
+                class="select playback-speed"
+                aria-label="Playback speed"
+              ></select>
+              <output id="playback-value" class="playback-count" for="playback"
+                >0 / 0</output
+              >
             </div>
-            <output id="playback-value" class="control__value" for="playback"
-              >0 / 0</output
-            >
-          </label>
-        </div>
+          </div>
+        </section>
       </section>
 
       <main class="main">
@@ -255,7 +230,7 @@
               <span id="tutorial-step" class="tutorial-panel__step"></span>
             </div>
             <p id="tutorial-text" class="tutorial-panel__text"></p>
-            <span class="tutorial-panel__hint">Space — next key step</span>
+            <span class="tutorial-panel__hint"><kbd class="kbd">Space</kbd> next key step</span>
           </aside>
         </div>
         <p id="status" class="status" aria-live="polite">Loading…</p>

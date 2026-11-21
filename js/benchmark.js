@@ -51,15 +51,6 @@ export function formatAlgoStats(steps, recordMs) {
 }
 
 /**
- * @param {string} label
- * @param {AlgoBenchmarkResult | undefined} result
- */
-export function formatAlgoOptionLabel(label, result) {
-  if (!result) return label;
-  return `${label} (${formatAlgoStats(result.steps, result.recordMs)})`;
-}
-
-/**
  * @param {number} displayIndex
  * @param {number} totalSteps
  * @param {number | undefined} recordMs

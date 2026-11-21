@@ -1,113 +1,194 @@
+/* Sorting Visualizer controls and panels. Shared components come from the
+   theme; see the note at the top of layout.css. */
+
 .controls {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: var(--border);
+  border-radius: var(--radius-surface);
   width: 100%;
   max-width: 42rem;
   margin-inline: auto;
   box-sizing: border-box;
 }
 
-.controls__row {
+/* ---- Sort section (algorithm, grid, shuffle, values) ----
+   Two rows under one title, like the Pathfinding Visualizer's Terrain
+   section; small labels sit before the controls they name. */
+.controls__setup {
   display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  justify-content: center;
-  gap: var(--space-4);
-}
-
-.controls__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: var(--space-2);
-}
-
-.control--action {
-  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
   min-width: 0;
 }
 
-.control--hue {
-  flex: 0 0 auto;
-  min-width: 0;
-  cursor: pointer;
+.setup-rows {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  justify-items: center;
+  gap: var(--space-1-5);
 }
 
-.control--hue .control__field--checkbox {
+.setup-row {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  width: 2.25rem;
+  align-items: center;
+  gap: var(--space-1-5) var(--space-4);
 }
 
-.control__field--checkbox {
+/* A label and its control stay together when the row wraps. */
+.setup-field {
   display: flex;
   align-items: center;
+  gap: var(--space-1-5);
 }
 
-.control__checkbox {
-  width: 1rem;
-  height: 1rem;
+.setup-label {
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-label);
+  white-space: nowrap;
+}
+
+.grid-size-range {
+  width: 6rem;
   margin: 0;
-  accent-color: var(--color-accent);
-  cursor: pointer;
 }
 
-.control__checkbox:disabled {
-  cursor: not-allowed;
+.grid-size-value {
+  min-width: 1.75rem;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.setup-row .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2rem;
+  padding: 0 var(--space-3);
+}
+
+/* Values: a checkbox dressed as a toggle button. The theme's .btn look when
+   off, its selected look (navy, sky border) when on. The checkbox stays in
+   the page for keyboards and screen readers but isn't drawn. */
+.toggle-btn {
+  position: relative;
+  user-select: none;
+}
+
+.toggle-btn[hidden] {
+  display: none !important;
+}
+
+.toggle-btn__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+
+.toggle-btn:has(.toggle-btn__input:checked) {
+  background: var(--color-selected-bg);
+  border-color: var(--color-selected-border);
+  color: var(--color-selected-text);
+}
+
+.toggle-btn:has(.toggle-btn__input:checked):hover {
+  background: var(--color-selected-bg-hover);
+}
+
+.toggle-btn:has(.toggle-btn__input:focus-visible) {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-focus-halo);
+}
+
+.toggle-btn:has(.toggle-btn__input:disabled) {
   opacity: 0.45;
-}
-
-.control--hue:has(.control__checkbox:disabled) {
   cursor: not-allowed;
-  opacity: 0.65;
 }
 
 .controls__description {
   margin: 0;
   padding: 0 var(--space-2);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  color: var(--color-text-muted);
+  max-width: 60ch;
+  margin-inline: auto;
+  font-size: 15px;
+  line-height: var(--leading-ui);
+  color: var(--color-text-secondary);
   text-align: center;
 }
 
 .controls__playback {
   width: 100%;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-rule);
 }
 
-.controls__buttons {
+/* Playback, laid out like the Pathfinding Visualizer's: the title, then two
+   equal rows, the slider above play, speed and the step count. */
+.controls__playback {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  height: 100%;
-}
-
-.control {
-  display: grid;
-  grid-template-rows: auto 2rem auto;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
 }
 
-.control--algorithm {
-  flex: 0 0 auto;
-  width: fit-content;
-  max-width: 100%;
+.playback-controls {
+  flex: 1;
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
 }
 
-.control--algorithm .control__field {
-  position: relative;
-  width: fit-content;
-  max-width: 100%;
-  height: auto;
-  min-height: 2rem;
-  display: block;
+/* Colour and cursor come from the theme's .range. */
+.playback-slider {
+  width: 100%;
+  margin: 0;
+}
+
+.playback-buttons {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.btn--playback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target);
+  height: 2rem;
+  padding: var(--space-1) var(--space-3);
+}
+
+/* The speed menu is the theme's .select. */
+.playback-speed {
+  height: 2rem;
+}
+
+.playback-count {
+  min-width: 6.5rem;
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 .algo-picker {
@@ -135,11 +216,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 600;
-  color: var(--color-text);
-  background: var(--color-bg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .algo-picker__trigger:disabled {
@@ -149,7 +226,7 @@
 
 .algo-picker__list {
   position: absolute;
-  z-index: 20;
+  z-index: var(--z-dropdown);
   top: 100%;
   left: 0;
   margin-top: var(--space-2);
@@ -160,25 +237,26 @@
   padding: var(--space-2) 0;
   overflow: hidden;
   list-style: none;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  box-shadow: var(--shadow-card);
 }
 
 .algo-picker__option {
   padding: var(--space-2) var(--space-4);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-ui);
   line-height: 1.25rem;
+  color: var(--color-text-ui);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
 }
 
-.algo-picker__option:hover,
+.algo-picker__option:hover {
+  background: var(--color-hover-bg);
+}
+
 .algo-picker__option[aria-selected="true"] {
-  background: var(--color-surface);
+  background: var(--color-selected-bg);
+  color: var(--color-selected-text);
 }
 
 .algorithm-measure {
@@ -189,105 +267,20 @@
   pointer-events: none;
   white-space: nowrap;
   width: max-content;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-size: var(--font-size-ui);
+  font-weight: var(--font-weight-semibold);
   font-family: inherit;
 }
 
-.control--compact {
-  flex: 0 1 auto;
-  min-width: 7.5rem;
-}
-
-.control--compact .control__input--select {
-  width: 6.5rem;
-}
-
-.control--grid-size .control__field {
-  gap: var(--space-2);
-}
-
-.control--grid-size .control__input--range {
-  width: 5.5rem;
-  flex: 0 0 auto;
-}
-
-.control--grid-size .control__value {
-  flex-shrink: 0;
-  min-width: 1.5rem;
-  text-align: right;
-}
-
-.control--playback {
-  width: 100%;
-  min-width: 0;
-  max-width: none;
-}
-
-.control__label {
-  font-size: var(--font-size-sm);
-  line-height: 1.25rem;
-  min-height: 1.25rem;
-  color: var(--color-text-muted);
-}
-
-.control__label--hidden {
-  visibility: hidden;
-}
-
-.control__field {
-  display: flex;
-  align-items: center;
-  height: 2rem;
-}
-
+/* The algorithm menu's trigger takes its look from the theme's .select;
+   these size it to the row. */
 .control__input {
   font: inherit;
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  padding: var(--space-2) var(--space-4);
 }
 
 .control__input--select {
-  width: 100%;
   height: 2rem;
-  padding: 0 var(--space-4);
-}
-
-.control__input--range {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  accent-color: var(--color-accent);
-}
-
-.control__value {
-  font-size: var(--font-size-sm);
-  line-height: 1.25rem;
-  min-height: 1.25rem;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.control__value--spacer {
-  visibility: hidden;
-}
-
-.controls__actions .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 2rem;
-  padding: 0 var(--space-4);
-  box-sizing: border-box;
-}
-
-.controls__actions .btn--icon {
-  width: 2.25rem;
-  padding: 0;
-  flex-shrink: 0;
+  padding: 0 var(--space-3);
 }
 
 .btn__icon {
@@ -306,44 +299,102 @@
   display: block;
 }
 
+/* .btn and its hover and disabled states come from the
+   theme. */
 .btn {
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
   white-space: nowrap;
-  transition: background var(--transition-fast);
 }
 
-.btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+/* ---- Algorithm card (js/ui/algorithmTooltip.js) ----
+   Same look as the Pathfinding Visualizer's algorithm tooltip. Border,
+   background and shadow come from the theme's .popover. */
+
+/* Long-pressing an option or the menu button shows its card; stop phones
+   from selecting the text or opening their own long-press menu instead. */
+.algo-picker__option,
+.algo-picker__trigger {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-.btn--primary {
-  color: var(--color-bg);
-  background: var(--color-accent);
+.algorithm-tooltip {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: var(--surface-padding);
+  color: var(--color-text-ui);
+  font-size: var(--font-size-small);
+  line-height: var(--leading-ui);
+  pointer-events: none;
 }
 
-.btn--primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+.algorithm-tooltip[hidden] {
+  display: none;
 }
 
-.btn--secondary {
-  color: var(--color-text);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
+.tooltip-title {
+  color: var(--color-heading);
+  font-size: 14px;
 }
 
-.btn--secondary:hover:not(:disabled) {
-  border-color: var(--color-text-muted);
+/* Time complexity: a theme .badge, green (.badge-positive) for O(n log n). */
+.tooltip-badge {
+  margin-top: 5px;
 }
 
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.tooltip-description {
+  margin: var(--space-1-5) 0 0;
+}
+
+.tooltip-note {
+  margin: var(--space-1-5) 0 0;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.tooltip-table {
+  width: 100%;
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+  font-size: var(--font-size-label);
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltip-table th {
+  padding: 0 0 3px var(--space-2);
+  border-bottom: 1px solid var(--color-rule);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-micro);
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tooltip-table td {
+  padding: 2px 0 2px var(--space-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tooltip-table .tooltip-row-name {
+  padding-left: 0;
+  text-align: left;
+}
+
+/* The hovered algorithm's row. */
+.tooltip-table tr.current td {
+  background: var(--color-highlight-row);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Lowest value in a column. */
+.tooltip-table td.best {
+  color: var(--color-success-strong);
+  font-weight: var(--font-weight-bold);
 }
 
 .heap-tree-panel[hidden] {
@@ -353,7 +404,7 @@
 .heap-tree-panel {
   position: absolute;
   top: 0;
-  left: calc(50% - min(35vmin, 320px) - var(--space-4));
+  left: calc(50% - var(--grid) / 2 - var(--space-4));
   right: auto;
   transform: translateX(-100%);
   z-index: 2;
@@ -362,13 +413,12 @@
   width: min(22rem, 34vw);
   min-width: 18rem;
   max-width: 26rem;
-  height: min(70vmin, 640px);
+  height: var(--grid);
   max-height: 100%;
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: var(--border);
+  border-radius: var(--radius-surface);
   background: var(--color-surface);
-  box-shadow: var(--shadow-card);
   box-sizing: border-box;
 }
 
@@ -377,7 +427,7 @@
   width: 100%;
   flex: 1;
   min-height: 0;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .quick-strip-panel[hidden] {
@@ -387,7 +437,7 @@
 .quick-strip-panel {
   position: absolute;
   top: 0;
-  left: calc(50% - min(35vmin, 320px) - var(--space-4));
+  left: calc(50% - var(--grid) / 2 - var(--space-4));
   right: auto;
   transform: translateX(-100%);
   z-index: 2;
@@ -400,10 +450,9 @@
   min-height: 7rem;
   max-height: min(28vmin, 220px);
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: var(--border);
+  border-radius: var(--radius-surface);
   background: var(--color-surface);
-  box-shadow: var(--shadow-card);
   box-sizing: border-box;
 }
 
@@ -412,7 +461,7 @@
   width: 100%;
   height: 5.5rem;
   min-height: 5.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .merge-panel[hidden] {
@@ -422,7 +471,7 @@
 .merge-panel {
   position: absolute;
   top: 0;
-  left: calc(50% - min(35vmin, 320px) - var(--space-4));
+  left: calc(50% - var(--grid) / 2 - var(--space-4));
   right: auto;
   transform: translateX(-100%);
   z-index: 2;
@@ -435,10 +484,9 @@
   min-height: 9.5rem;
   max-height: min(32vmin, 240px);
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: var(--border);
+  border-radius: var(--radius-surface);
   background: var(--color-surface);
-  box-shadow: var(--shadow-card);
   box-sizing: border-box;
 }
 
@@ -447,7 +495,7 @@
   width: 100%;
   height: 8.5rem;
   min-height: 8.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .tim-panel[hidden] {
@@ -457,7 +505,7 @@
 .tim-panel {
   position: absolute;
   top: 0;
-  left: calc(50% - min(35vmin, 320px) - var(--space-4));
+  left: calc(50% - var(--grid) / 2 - var(--space-4));
   right: auto;
   transform: translateX(-100%);
   z-index: 2;
@@ -470,10 +518,9 @@
   min-height: 9.5rem;
   max-height: min(32vmin, 240px);
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: var(--border);
+  border-radius: var(--radius-surface);
   background: var(--color-surface);
-  box-shadow: var(--shadow-card);
   box-sizing: border-box;
 }
 
@@ -482,7 +529,7 @@
   width: 100%;
   height: 8.5rem;
   min-height: 8.5rem;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .tutorial-panel[hidden] {
@@ -492,7 +539,7 @@
 .tutorial-panel {
   position: absolute;
   top: 0;
-  left: calc(50% + min(35vmin, 320px) + var(--space-4));
+  left: calc(50% + var(--grid) / 2 + var(--space-4));
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -500,10 +547,9 @@
   min-width: 12rem;
   max-width: 16rem;
   padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border: var(--border);
+  border-radius: var(--radius-surface);
   background: var(--color-surface);
-  box-shadow: var(--shadow-card);
 }
 
 .tutorial-panel__meta {
@@ -514,28 +560,30 @@
 }
 
 .tutorial-panel__tag {
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  color: var(--color-text);
+  font-size: var(--font-size-label);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-section);
+  text-transform: uppercase;
+  color: var(--color-heading);
 }
 
 .tutorial-panel__step {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
 .tutorial-panel__text {
   margin: 0;
   flex: 1;
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-  color: var(--color-text-muted);
+  font-size: var(--font-size-ui);
+  line-height: var(--leading-ui);
+  color: var(--color-text-ui);
 }
 
 .tutorial-panel__hint {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
 }
 
 @media (max-width: 900px) {
@@ -552,7 +600,7 @@
     transform: none;
     order: -1;
     width: 100%;
-    max-width: min(70vmin, 640px);
+    max-width: var(--grid);
     height: auto;
     min-height: 10rem;
     aspect-ratio: 4 / 3;
@@ -564,7 +612,7 @@
     transform: none;
     order: -1;
     width: 100%;
-    max-width: min(70vmin, 640px);
+    max-width: var(--grid);
     max-height: none;
   }
 
@@ -574,7 +622,7 @@
     transform: none;
     order: -1;
     width: 100%;
-    max-width: min(70vmin, 640px);
+    max-width: var(--grid);
     max-height: none;
   }
 
@@ -584,7 +632,7 @@
     transform: none;
     order: -1;
     width: 100%;
-    max-width: min(70vmin, 640px);
+    max-width: var(--grid);
     max-height: none;
   }
 
@@ -592,14 +640,67 @@
     position: static;
     left: auto;
     width: 100%;
-    max-width: min(70vmin, 640px);
+    max-width: var(--grid);
   }
 }
 
-@media (max-width: 640px) {
-  .controls__actions {
-    flex: 1 1 100%;
-    justify-content: center;
-    width: 100%;
+@media (min-width: 901px) {
+  /* Side panels shrink to the room beside the grid, so they never run off
+     the edge of a smaller screen (--grid: see layout.css). */
+  .heap-tree-panel,
+  .quick-strip-panel,
+  .merge-panel,
+  .tim-panel {
+    width: min(22rem, (100cqw - var(--grid)) / 2 - var(--space-8));
+    min-width: 0;
+  }
+
+  .tutorial-panel {
+    width: min(14rem, (100cqw - var(--grid)) / 2 - var(--space-8));
+    min-width: 0;
+  }
+}
+
+/* ---- Wide screens: one toolbar, like the Pathfinding Visualizer ----
+   The Sort section and Playback side by side with one divider between them,
+   titles along the top and both sections two rows tall; the algorithm
+   description sits underneath. Screens 900px and narrower keep the
+   controls card. */
+@media (min-width: 901px) {
+  .controls {
+    display: grid;
+    grid-template-columns: auto minmax(14rem, 1fr);
+    grid-template-areas:
+      "setup play"
+      "desc desc";
+    align-items: stretch;
+    gap: var(--space-2) var(--space-4);
+    max-width: none;
+    padding: 0 0 var(--space-3);
+    border: 0;
+    border-bottom: 1px solid var(--color-rule);
+    border-radius: 0;
+    background: none;
+  }
+
+  .controls__setup {
+    grid-area: setup;
+  }
+
+  .setup-row {
+    flex-wrap: nowrap;
+  }
+
+  .controls__playback {
+    grid-area: play;
+    padding-top: 0;
+    padding-left: var(--space-4);
+    border-top: 0;
+    border-left: var(--border);
+  }
+
+  .controls__description {
+    grid-area: desc;
+    max-width: none;
   }
 }

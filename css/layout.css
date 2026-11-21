@@ -1,3 +1,11 @@
+/* Sorting Visualizer page layout.
+
+   Colours, type, spacing and the shared components (.btn,
+   .page-title, .section-title, .select, .range, .popover, .kbd) come from
+   the christophermpalmer.com theme, linked before this file in index.html.
+   Use theme tokens (var(--color-...)) rather than raw colours, so changes
+   to the theme reach this app too. */
+
 *,
 *::before,
 *::after {
@@ -11,11 +19,23 @@ body {
 }
 
 body {
-  font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  color: var(--color-text);
+  font-family: var(--font-serif);
+  font-size: var(--font-size-ui);
+  line-height: var(--leading-ui);
+  color: var(--color-text-ui);
   background: var(--color-bg);
-  line-height: 1.5;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+:where(a, button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-navy);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--color-focus-halo);
 }
 
 .page {
@@ -24,47 +44,19 @@ body {
   min-height: 100%;
   max-width: 1280px;
   margin: 0 auto;
-  padding: var(--space-6) var(--space-4);
-  gap: var(--space-6);
+  padding: var(--space-5);
+  gap: var(--space-5);
 }
 
+/* The title itself is the theme's .page-title. */
 .header {
   text-align: center;
 }
 
-.header__title {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
 .header__subtitle {
   margin: var(--space-2) 0 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.header__links {
-  margin: var(--space-2) 0 0;
-  font-size: var(--font-size-sm);
-}
-
-.header__repo-link {
-  color: var(--color-accent);
-  text-decoration: none;
-  transition: color var(--transition-fast);
-}
-
-.header__repo-link:hover {
-  color: var(--color-accent-hover);
-  text-decoration: underline;
-}
-
-.header__repo-link:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: 2px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-ui);
 }
 
 .main {
@@ -76,7 +68,12 @@ body {
   min-height: 0;
 }
 
+/* --grid is the side of the square colour grid; the side panels line up
+   with it. On narrow screens everything stacks and the grid takes the full
+   width. On wider screens the page fills exactly one screen and the grid
+   takes whatever height is left under the controls (see below). */
 .main__stage {
+  --grid: min(100%, 640px);
   position: relative;
   display: flex;
   justify-content: center;
@@ -86,27 +83,52 @@ body {
 
 .canvas-container {
   position: relative;
-  flex: 0 1 min(70vmin, 640px);
-  width: min(70vmin, 640px);
+  flex: 0 0 auto;
+  width: var(--grid);
   max-width: 100%;
   aspect-ratio: 1;
-  padding: var(--space-4);
+  padding: var(--space-3);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  border: var(--border);
+  border-radius: var(--radius-surface);
 }
 
 #canvas {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
 }
 
 .status {
   margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
   text-align: center;
+}
+
+@media (min-width: 901px) {
+  /* One screen, no scrolling. When hosted on christophermpalmer.com the
+     portfolio bar's height is subtracted; standalone it is unset. */
+  .page {
+    height: 100vh;
+    height: calc(100dvh - var(--pf-bar-height, 0px));
+    min-height: 34rem;
+  }
+
+  .main__stage {
+    flex: 1;
+    min-height: 0;
+    container-type: size;
+    /* Fits the height left; on wide screens it also leaves room beside it
+       for the side panels. */
+    --grid: min(100cqh, 640px, max(100cqw - 2 * 23rem, 70cqw));
+  }
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: var(--space-4) var(--space-3);
+    gap: var(--space-4);
+  }
 }

@@ -10,7 +10,10 @@ import { timSort } from "./timsort.js";
 /** @typedef {import('./types.js').SortGenerator} SortGenerator */
 
 /**
- * @typedef {{ id: string, label: string, description: string, sort: SortGenerator }} AlgorithmEntry
+ * Time complexity shown as a badge in the algorithm tooltip; "fast" ones
+ * (O(n log n)) get the green badge.
+ * @typedef {{ label: string, fast: boolean }} Complexity
+ * @typedef {{ id: string, label: string, description: string, complexity: Complexity, sort: SortGenerator }} AlgorithmEntry
  */
 
 /** @type {AlgorithmEntry[]} */
@@ -20,6 +23,7 @@ export const ALGORITHMS = [
     label: "Bubble Sort",
     description:
       "Walks the grid comparing neighbors; larger hues bubble towards their sorted position each pass.",
+    complexity: { label: "O(n²) comparisons", fast: false },
     sort: bubbleSort,
   },
   {
@@ -27,6 +31,7 @@ export const ALGORITHMS = [
     label: "Insertion Sort",
     description:
       "Builds a sorted section from the left by sliding each hue into place among earlier cells.",
+    complexity: { label: "O(n²), fast when nearly sorted", fast: false },
     sort: insertionSort,
   },
   {
@@ -34,6 +39,7 @@ export const ALGORITHMS = [
     label: "Selection Sort",
     description:
       "Each pass finds the smallest remaining hue and puts it in the next left slot.",
+    complexity: { label: "O(n²) comparisons", fast: false },
     sort: selectionSort,
   },
   {
@@ -41,6 +47,7 @@ export const ALGORITHMS = [
     label: "Heap Sort",
     description:
       "Builds a max-heap, locks the largest hue at the tail each round, then re-heapifies from the root.",
+    complexity: { label: "O(n log n) worst case", fast: true },
     sort: heapSort,
   },
   {
@@ -48,6 +55,7 @@ export const ALGORITHMS = [
     label: "Quick Sort",
     description:
       "Partitions each section around a pivot, then sorts the left and right parts.",
+    complexity: { label: "O(n log n) on average", fast: true },
     sort: quickSort,
   },
   {
@@ -55,6 +63,7 @@ export const ALGORITHMS = [
     label: "Merge Sort",
     description:
       "Splits the grid into even sub-runs, sorts each run, then merges them back together.",
+    complexity: { label: "O(n log n) worst case", fast: true },
     sort: mergeSort,
   },
   {
@@ -62,6 +71,7 @@ export const ALGORITHMS = [
     label: "Tim Sort",
     description:
       "Finds natural increasing runs, fixes short ones, and merges runs—fast on nearly sorted data.",
+    complexity: { label: "O(n log n) worst case", fast: true },
     sort: timSort,
   },
 ];

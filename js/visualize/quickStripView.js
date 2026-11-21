@@ -1,6 +1,7 @@
 /** @typedef {import('../model/grid.js').Cell} Cell */
 /** @typedef {import('../tutorial/quick.js').QuickStripState} QuickStripState */
 import { CanvasView } from "./canvasView.js";
+import { ink } from "./ink.js";
 
 const ACTIVE_STROKE = "#facc15";
 const ACTIVE_GLOW = "rgba(250, 204, 21, 0.65)";
@@ -11,7 +12,6 @@ const PIVOT_GLOW = "rgba(167, 139, 250, 0.5)";
 const PLACED_STROKE = "#4ade80";
 const PLACED_GLOW = "rgba(74, 222, 128, 0.55)";
 const ZONE_FILL = "rgba(56, 189, 248, 0.22)";
-const RANGE_STROKE = "rgba(255, 255, 255, 0.35)";
 const DIM_OPACITY = 0.28;
 
 export class QuickStripView {
@@ -55,7 +55,7 @@ export class QuickStripView {
         n > 0;
       const showIdle = !showComplete && !showPlacedOnly;
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+      ctx.fillStyle = ink.label;
       ctx.font = "600 10px system-ui, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "middle";
@@ -73,7 +73,7 @@ export class QuickStripView {
 
       if (showComplete || (showIdle && strip.hi < 0 && !showPlacedOnly)) {
         if (showIdle && strip.hi < 0 && !showComplete) {
-          ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+          ctx.fillStyle = ink.hint;
           ctx.font = "500 10px system-ui, sans-serif";
           ctx.textBaseline = "top";
           ctx.fillText("Start sort to see range", pad, rowY - 6);
@@ -108,7 +108,7 @@ export class QuickStripView {
         const hiX = slotCenter(strip.hi) + radius;
         const bracketY = topLabel + 2;
 
-        ctx.strokeStyle = RANGE_STROKE;
+        ctx.strokeStyle = ink.bracket;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(loX, bracketY + bracketH);
@@ -127,7 +127,7 @@ export class QuickStripView {
             2 * radius + 4
           );
 
-          ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+          ctx.fillStyle = ink.hint;
           ctx.font = "500 9px system-ui, sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "top";
@@ -162,7 +162,7 @@ export class QuickStripView {
           );
         }
 
-        ctx.fillStyle = "rgba(167, 139, 250, 0.9)";
+        ctx.fillStyle = "#7c3aed";
         ctx.font = "600 9px system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";

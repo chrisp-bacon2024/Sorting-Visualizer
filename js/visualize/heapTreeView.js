@@ -1,5 +1,6 @@
 /** @typedef {import('../model/grid.js').Cell} Cell */
 import { CanvasView } from "./canvasView.js";
+import { ink } from "./ink.js";
 
 const ACTIVE_STROKE = "#facc15";
 const ACTIVE_GLOW = "rgba(250, 204, 21, 0.65)";
@@ -106,7 +107,7 @@ export class HeapTreeView {
           }
         }
 
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.strokeStyle = ink.line;
         ctx.lineWidth = 1;
         for (let i = 0; i < clampedHeap; i++) {
           const p = positions.get(i);
@@ -131,7 +132,7 @@ export class HeapTreeView {
       }
 
       if (sortedCount > 0) {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+        ctx.fillStyle = ink.label;
         ctx.font = sortedFont;
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";

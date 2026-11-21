@@ -15,6 +15,7 @@ import { QuickStripView } from "./visualize/quickStripView.js";
 import { MergePanelView } from "./visualize/mergePanelView.js";
 import { TimPanelView } from "./visualize/timPanelView.js";
 import { Animator } from "./visualize/animator.js";
+import { setupAlgorithmTooltip } from "./ui/algorithmTooltip.js";
 import { SortPlayer, playbackDelay } from "./visualize/sortPlayer.js";
 import {
   recordSort,
@@ -25,7 +26,6 @@ import {
 } from "./sort/sortSession.js";
 import {
   animatedStepCount,
-  formatAlgoOptionLabel,
   formatAlgoStats,
   formatPlaybackLabel,
   toDisplayPlaybackIndex,
@@ -131,6 +131,18 @@ export function createApp() {
   );
   const statusEl = /** @type {HTMLElement} */ (document.querySelector("#status"));
 
+  /** @type {Map<string, import('./benchmark.js').AlgoBenchmarkResult>} */
+  const algoResults = new Map();
+
+  // Hover / long-press card for each algorithm, with a comparison of the
+  // ones run on this shuffle (like the Pathfinding Visualizer's).
+  const algorithmTooltip = setupAlgorithmTooltip({
+    trigger: algorithmTrigger,
+    algorithms: ALGORITHMS,
+    getCurrentId: () => algorithmSelect.value,
+    getResults: () => algoResults,
+  });
+
   /** @type {Grid | null} */
   let grid = null;
   /** @type {string} */
@@ -149,8 +161,6 @@ export function createApp() {
   let lastRenderedIndex = 0;
   /** @type {{ hue: number, color: string }[] | null} */
   let benchmarkSnapshot = null;
-  /** @type {Map<string, import('./benchmark.js').AlgoBenchmarkResult>} */
-  const algoResults = new Map();
 
   const animator = new Animator();
   const sortPlayer = new SortPlayer();
@@ -775,10 +785,8 @@ export function createApp() {
     algorithmList.innerHTML = "";
 
     for (const algo of algorithms) {
-      const label = formatAlgoOptionLabel(
-        algo.label,
-        algoResults.get(algo.id)
-      );
+      // Run stats are in the hover card's comparison table, not the label.
+      const label = algo.label;
 
       const option = document.createElement("option");
       option.value = algo.id;
@@ -801,6 +809,7 @@ export function createApp() {
     updateAlgorithmTriggerLabel();
     updateAlgorithmDescription();
     updateAlgorithmSelectWidth();
+    algorithmTooltip.refresh();
   }
 
   function applyAlgorithmSelection(algoId) {

@@ -2,6 +2,7 @@
 /** @typedef {import('../tutorial/timsort.js').TimPanelState} TimPanelState */
 /** @typedef {import('../tutorial/merge.js').MergePanelState} MergePanelState */
 import { CanvasView } from "./canvasView.js";
+import { ink } from "./ink.js";
 
 const ACTIVE_STROKE = "#facc15";
 const ACTIVE_GLOW = "rgba(250, 204, 21, 0.65)";
@@ -36,14 +37,14 @@ export class TimPanelView {
       const pad = 12;
       const labelW = 44;
 
-      ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+      ctx.fillStyle = ink.label;
       ctx.font = "600 10px system-ui, sans-serif";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       ctx.fillText("Tim sort", pad, 8);
 
       if (!panel.active) {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+        ctx.fillStyle = ink.hint;
         ctx.font = "500 10px system-ui, sans-serif";
         ctx.fillText("Start sort to see runs", pad, pad + 20);
         return;
@@ -167,7 +168,7 @@ function drawSingleRow(
   const slotX = (/** @type {number} */ slot) =>
     pad + labelW + useRadius + slot * (2 * useRadius + useGap);
 
-  ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+  ctx.fillStyle = ink.hint;
   ctx.font = "500 9px system-ui, sans-serif";
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
