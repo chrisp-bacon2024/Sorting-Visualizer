@@ -2,7 +2,7 @@
 
 An interactive, browser-based sorting visualizer that sorts a grid of random colors by **hue**. Each algorithm runs on the same shuffled input so you can compare behavior, step counts, and recording time fairly.
 
-**[Live demo →](https://chrisp-bacon2024.github.io/Sorting-Visualizer/)**
+**[Live demo →](https://chrisp-bacon2024.github.io/Sorting-Visualizer/)** · also on [christophermpalmer.com](https://christophermpalmer.com/softwareengineering/sortingvisualizer/)
 
 ---
 
@@ -41,7 +41,8 @@ An interactive, browser-based sorting visualizer that sorts a grid of random col
 - **Hue-based sorting** — cells are sorted by hue; the goal is a smooth rainbow.
 - **Recorded playback** — each run is captured once, then replayed with pause, resume, and a step scrubber (incremental seek + checkpoints for long recordings).
 - **Speed presets** — Tutorial, Very slow → Very fast; playback time is budgeted so long runs still finish in a reasonable wall-clock time.
-- **Optional cell values** — show numeric hue labels (hidden automatically on large grids for clarity).
+- **Optional cell values** — the **Values** toggle shows numeric hue labels (hidden automatically on large grids for clarity).
+- **One toolbar** — a **Sort** section (algorithm, grid size, Shuffle, Values) and a **Playback** section (play/pause, scrubber, speed), sized so the whole app fits on one screen.
 
 ### Tutorial mode
 
@@ -55,12 +56,12 @@ An interactive, browser-based sorting visualizer that sorts a grid of random col
 ### Benchmarking
 
 - **Shuffle once, compare all** — switching algorithms reuses the same color arrangement until you shuffle again.
-- **Per-algorithm stats** — animated step count and record time (shown as ms, or seconds with two decimals when over 999 ms).
+- **Algorithm cards** — hover over an algorithm in the menu (long-press on touch screens, or focus the menu with the keyboard) for a card with its time complexity, a short description, and a table comparing every algorithm run on the current shuffle: compares, swaps, and compute time. The best value in each column is highlighted.
 
 ### Large grids (> 40×40)
 
 - Bubble, Insertion, and Selection are hidden (impractical at scale).
-- Values checkbox hidden; speed defaults to **Very fast**.
+- Values toggle hidden; speed defaults to **Very fast**.
 
 ---
 
@@ -109,21 +110,26 @@ Then open `http://localhost:8080`.
 
 ```
 ├── index.html          # App shell & controls
-├── css/                # Layout, components, design tokens
+├── css/                # Layout and app-specific components
 ├── js/
 │   ├── app.js          # UI wiring, playback, tutorial orchestration
 │   ├── algorithms/     # Sort implementations (generators)
 │   ├── sort/           # Recording, seek, checkpoints
 │   ├── visualize/      # Canvas, side panels, player
+│   ├── ui/             # Algorithm cards
 │   └── tutorial/       # Per-algorithm coaching & panels
 └── docs/assets/        # README demo GIFs
 ```
+
+## Styling
+
+The app uses the shared theme from christophermpalmer.com (`https://christophermpalmer.com/shared/theme/v1/theme.css`, linked in `index.html`) for its colours, spacing, type and standard controls, so it matches the portfolio. `css/` holds only this app's layout and special controls, written with the theme's variables. Text and lines drawn on the canvases read the same variables in `js/visualize/ink.js`.
 
 ---
 
 ## Deploy (GitHub Pages)
 
-Published via GitHub Actions to the [live demo](https://chrisp-bacon2024.github.io/Sorting-Visualizer/).
+Published via GitHub Actions to the [live demo](https://chrisp-bacon2024.github.io/Sorting-Visualizer/). Each push to `main` also asks the portfolio to redeploy (`.github/workflows/portfolio-update.yml`), so the copy on christophermpalmer.com updates too.
 
 If deployment fails with `Get Pages site failed` / `Not Found`:
 
